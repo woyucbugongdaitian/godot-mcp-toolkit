@@ -27,5 +27,13 @@
     "game-development",
     "editor-plugin",
     "runtime-debugging"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woyucbugongdaitian/godot-mcp-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/woyucbugongdaitian/godot-mcp-toolkit/issues"
+  },
+  "homepage": "https://github.com/woyucbugongdaitian/godot-mcp-toolkit#readme"
 }

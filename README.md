@@ -1,6 +1,8 @@
 # Godot MCP Toolkit
 
-**Godot MCP Toolkit** is a practical MCP server for Godot 4 automation. It combines safe headless project tools with an optional live Editor Bridge and Runtime Agent, so AI assistants can inspect, build, run, test, and iterate on Godot projects.
+**Godot MCP Toolkit** is a practical MCP server for Godot 4 automation.
+
+Project home: https://github.com/woyucbugongdaitian/godot-mcp-toolkit It combines safe headless project tools with an optional live Editor Bridge and Runtime Agent, so AI assistants can inspect, build, run, test, and iterate on Godot projects.
 
 ## Highlights
 
