@@ -1,0 +1,31 @@
+{
+  "name": "godot-mcp-toolkit",
+  "version": "0.3.0",
+  "description": "A practical MCP toolkit for Godot 4 project automation, live editor control, and runtime observability.",
+  "type": "module",
+  "bin": {
+    "godot-mcp-toolkit": "build/index.mjs"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node build/index.mjs",
+    "check": "node --check server/index.mjs && node --check scripts/build.mjs && node --check test/mcp-contract.mjs && node --check test/editor-binding.mjs && node --check test/runtime-binding.mjs",
+    "test": "node test/mcp-contract.mjs && node test/editor-binding.mjs && node test/runtime-binding.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "godot",
+    "godot-4",
+    "automation",
+    "game-development",
+    "editor-plugin",
+    "runtime-debugging"
+  ]
+}

@@ -1,0 +1,8 @@
+node_modules/
+build/
+.godot/
+.state/
+settings.local.json
+global-settings.json
+mcp-config.generated.json
+*.backup.*

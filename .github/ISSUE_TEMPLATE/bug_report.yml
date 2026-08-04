@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible problem in the server, Editor Bridge, or Runtime Agent.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the tool name and the observed result.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: List the minimal MCP calls or Godot steps.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Environment
+      description: Godot version, Node version, operating system, and toolkit version.
+    validations:
+      required: true
