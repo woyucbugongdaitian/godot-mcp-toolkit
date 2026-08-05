@@ -8,7 +8,7 @@ Godot MCP Toolkit prioritizes stable, verifiable semantic operations over brittl
 - One-to-one live Editor binding with scene tree, Inspector properties, selection, undo/redo, editor screenshots, script navigation, and editor diagnostics.
 - 2D cameras/lights, UI screens and semantic components, 3D primitives/cameras/lights/transforms, materials, particles, shaders, post-process, and stylized rendering helpers.
 - Animation tracks/keys, AnimationTree state parameters, navigation nodes/agents, collision shapes, physics-node inspection, audio players/buses, themes, plugins, workspace operations, and resource reimport.
-- Runtime scene/property inspection, method calls, pause/resume/step, screenshots, ray queries, AudioServer control, and local runtime binding.
+- Runtime scene/property inspection, method calls, pause/resume/step, screenshots, ray, point, primitive-shape overlap, and navigation path queries, AudioServer control, and local runtime binding.
 - Runtime observability with watched properties, cursor-based event polling, runtime logs, and rolling frame metrics.
 - Runtime input injection for keys, mouse buttons, pointer movement, wheel, touch, touch-drag, and complete mouse drags.
 
@@ -19,7 +19,7 @@ These areas have useful primitives but do not yet reproduce the full Godot Edito
 - **Script Editor:** state, opening, line navigation, breakpoints, save actions, and debugger status are available; write-side selection, completion, refactoring, and full stack/variable views are not.
 - **3D authoring:** primitive blockout, transforms, cameras, lights, and materials are available; mesh editing, skeletons, skinning, and full gizmo interaction are not.
 - **Animation:** tracks, keys, effects, and basic AnimationTree parameters are available; state-machine graph editing, curve tools, and advanced timeline workflows are not.
-- **Navigation and physics:** node creation, agent configuration, collision shapes, inspection, and ray queries are available; baking, path-event streams, contacts, shape-query suites, and complete debug visualization are not.
+- **Navigation and physics:** node creation, agent configuration, collision shapes, inspection, ray queries, point and primitive-shape overlap queries, and navigation path queries are available; baking, path-event streams, contact information, advanced query filters/exclusions, and complete debug visualization are not.
 - **Audio:** bus/player inspection and basic playback/volume controls are available; effect-chain authoring, spectrum analysis, meters, and full mixer editing are not.
 - **UI resources:** semantic controls, layout, and theme overrides are available; advanced Theme subresources and every resource selector are not.
 - **TileMap:** cell inspection and editing are available; terrain painting, atlas authoring, TileSet subresources, and advanced editor workflows are not.
@@ -28,7 +28,7 @@ These areas have useful primitives but do not yet reproduce the full Godot Edito
 ## Next Priorities
 
 1. **Runtime debugging depth:** remote variable watches, richer debugger snapshots, structured log severity/source filters, and more complete frame samples.
-2. **2D/3D scene authoring:** stronger transform workflows, batch scene edits, camera/view helpers, navigation and physics debug visualization, and terrain/atlas primitives.
+2. **2D/3D scene authoring:** stronger transform workflows, batch scene edits, camera/view helpers, navigation baking and debug visualization, contact-level physics diagnostics, and terrain/atlas primitives.
 3. **Animation and resources:** state-machine graph operations, curve/keyframe utilities, Theme/TileSet subresources, and safer resource selection APIs.
 4. **Import and export:** importer settings, export presets, platform execution, and preflight validation.
 5. **Editor parity:** Script Editor write-side operations, Project Manager integration, Import/Export Dock controls, and broader workspace layout support.

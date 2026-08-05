@@ -18,6 +18,7 @@ await fs.writeFile(resolve(projectPath, "project.godot"), '[application]\nconfig
 await fs.writeFile(resolve(otherProjectPath, "project.godot"), '[application]\nconfig/name="Other Runtime Binding Test"\n', "utf8");
 
 let boundSessionId = null;
+const receivedOperations = [];
 const bridge = new WebSocketServer({ host: "127.0.0.1", port: 0 });
 await once(bridge, "listening");
 const bridgePort = bridge.address().port;
@@ -37,6 +38,7 @@ bridge.on("connection", (socket) => {
   socket.on("message", (raw) => {
     const request = JSON.parse(raw.toString("utf8"));
     const params = request.params ?? {};
+    receivedOperations.push({ operation: request.operation, params });
     const send = (ok, result = null, error = "", details = {}) => socket.send(JSON.stringify({ id: request.id, ok, result, error, details }));
     if (params.projectPath !== projectPath) {
       send(false, null, "Runtime project does not match the requested MCP project", { code: "project_mismatch", projectPath });
@@ -137,7 +139,7 @@ try {
 
   const listing = await firstClient.request("tools/list", {});
   const toolNames = new Set(listing.result.tools.map((tool) => tool.name));
-  for (const name of ["get_runtime_info", "get_runtime_binding", "release_runtime_binding", "pause_runtime", "resume_runtime", "inject_runtime_pointer", "configure_runtime_observability", "poll_runtime_observability"]) assert.equal(toolNames.has(name), true, name);
+  for (const name of ["get_runtime_info", "get_runtime_binding", "release_runtime_binding", "pause_runtime", "resume_runtime", "inject_runtime_pointer", "configure_runtime_observability", "poll_runtime_observability", "query_runtime_physics_shape", "query_runtime_navigation_path"]) assert.equal(toolNames.has(name), true, name);
 
   const initialBinding = await firstClient.call("get_runtime_binding");
   assert.equal(initialBinding.value.bound, false);
@@ -145,6 +147,26 @@ try {
   const firstInfo = await firstClient.call("get_runtime_info");
   assert.equal(firstInfo.value.projectPath, projectPath);
   assert.equal(firstInfo.value.binding.bound, true);
+
+  const physicsShape = await firstClient.call("query_runtime_physics_shape", {
+    dimension: "2d",
+    queryType: "shape",
+    position: { x: 16, y: 24 },
+    shape: "circle",
+    size: { radius: 8 },
+  });
+  assert.equal(physicsShape.value.projectPath, projectPath);
+  assert.deepEqual(receivedOperations.at(-1).operation, "query_physics_shape");
+  assert.deepEqual(receivedOperations.at(-1).params.position, { x: 16, y: 24 });
+
+  const navigationPath = await firstClient.call("query_runtime_navigation_path", {
+    dimension: "2d",
+    from: { x: 0, y: 0 },
+    to: { x: 64, y: 64 },
+  });
+  assert.equal(navigationPath.value.projectPath, projectPath);
+  assert.deepEqual(receivedOperations.at(-1).operation, "query_navigation_path");
+  assert.deepEqual(receivedOperations.at(-1).params.to, { x: 64, y: 64 });
 
   const projectSwitch = await firstClient.call("get_runtime_info", { projectPath: otherProjectPath });
   assert.match(projectSwitch.error, /already bound/);

@@ -1,72 +1,69 @@
 # Godot MCP Toolkit
 
-[简体中文](README.zh-CN.md) · [Capabilities](docs/capabilities.md) · [Editor Bridge](docs/editor-bridge.md) · [Compatibility](docs/compatibility.md) · [Roadmap](docs/roadmap.md)
+> Give an MCP client a structured, Godot-aware way to inspect, author, run, test, and debug Godot 4 projects.
 
-**Godot MCP Toolkit** gives an MCP client a structured, Godot-aware way to inspect, author, run, test, and debug Godot 4 projects. It combines reproducible headless automation with an optional live **Editor Bridge** and **Runtime Agent**, so an assistant can move from project understanding to scene iteration and runtime verification without fragile screen-coordinate automation.
+[![Godot 4](https://img.shields.io/badge/Godot-4.x-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
+[![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![MCP](https://img.shields.io/badge/MCP-2025--06--18-6f42c1)](https://modelcontextprotocol.io/)
+[![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
+[![中文文档](https://img.shields.io/badge/docs-简体中文-f59e0b)](README.zh-CN.md)
 
-> **Ask for outcomes, not clicks.** Try: “Create a responsive pause menu,” “add a 3D camera and key light,” or “run the current scene and watch the player's health and frame time.” The toolkit maps those requests to Godot-native operations.
+[简体中文](README.zh-CN.md) · [Detailed tutorial (中文)](docs/tutorial.zh-CN.md) · [Capabilities](docs/capabilities.md) · [Editor Bridge](docs/editor-bridge.md) · [Compatibility](docs/compatibility.md) · [Roadmap](docs/roadmap.md)
 
-## Why This Toolkit
+Godot MCP Toolkit connects an MCP client to Godot through deterministic headless operations, an optional live **Editor Bridge**, and a **Runtime Agent**. The result is a workflow that starts with project understanding and ends with verified scene changes or runtime evidence—without relying on fragile screen-coordinate automation.
 
-| Need | Toolkit approach | Practical benefit |
+> [!TIP]
+> Ask for outcomes instead of clicks: “Create a responsive pause menu”, “add a camera and key light to the arena”, or “run the scene and report health changes plus frame time.”
+
+## Choose Your Path
+
+| You want to… | Start with… | Plugin required? |
 | --- | --- | --- |
-| Generate or repair project files | Headless Godot operations | Repeatable edits that do not require an open Editor |
-| Edit an open scene safely | Live Editor Bridge | Scene-tree and Inspector changes with selection context and Undo/Redo support |
-| Build 2D, 3D, and UI content | Semantic authoring tools | Request a camera, light, layout, material, or effect directly |
-| Debug a running game | Runtime Agent | Inspect nodes, watch values, inject input, and collect logs or frame metrics |
-| Keep the client manageable | Tool groups | Expose only the capabilities a task needs instead of a flat tool list |
+| Inspect or modify project files, scenes, scripts, and resources | [Headless workflow](#quick-start) | No |
+| Edit an open scene with Godot context, selection, and Undo/Redo | [Editor Bridge](docs/editor-bridge.md) | Yes |
+| Inspect and control a running game | [Runtime workflow](docs/tutorial.zh-CN.md#五运行时调试与问题复现) | Yes |
+| Keep the MCP tool list small | [Tool groups](#expose-only-the-tools-you-need) | No |
 
-## Three Connected Modes
+## At a Glance
 
 ```mermaid
 flowchart LR
     Client["MCP client / AI assistant"] --> Server["Godot MCP Toolkit\nNode.js MCP server"]
-    Server --> Headless["Headless Godot\nfiles, scenes, checks, tests"]
+    Server --> Headless["Headless Godot\nfiles · scenes · checks · tests"]
     Server --> Bridge["Editor Bridge\nopen Godot Editor"]
     Server --> Agent["Runtime Agent\nrunning game"]
-    Bridge --> Editor["Editor scene, Inspector, 2D, 3D, UI"]
-    Agent --> Game["Game input, metrics, logs, properties"]
+    Bridge --> Editor["scene tree · Inspector · 2D · 3D · UI"]
+    Agent --> Game["input · properties · logs · metrics"]
 ```
 
-### Headless automation — no plugin required
+### Three connected modes
 
-Use this for deterministic project work: discover projects, create scenes and nodes, edit resources, generate GDScript, validate scripts, capture screenshots, run automation tests, inspect TileMaps, and profile scenes. Project-facing operations accept an explicit `projectPath`, which makes multi-project work predictable.
+- **Headless automation** — discover projects, create scenes, edit nodes and resources, generate or validate GDScript, capture screenshots, run tests, inspect TileMaps, and profile scenes.
+- **Live Editor Bridge** — work with the currently open Godot Editor: scene tree, Inspector properties, selections, 2D/3D content, UI, effects, animation, navigation, physics, audio, themes, plugins, and workspace state.
+- **Runtime Agent** — inspect remote nodes and properties, call methods, pause/resume/step, inject keyboard or pointer input, capture screenshots, query ray, point, and primitive-shape physics overlaps, query navigation paths, control audio, watch values, and collect logs or frame metrics.
 
-### Live Editor Bridge — author inside Godot
+## What It Covers
 
-Enable the included plugin when an assistant needs the currently open Editor: inspect or edit the scene tree, change Inspector properties, make selections, manipulate 2D/3D content, work with UI, effects, animation, navigation, physics, audio, themes, plugins, and workspace controls.
-
-### Runtime Agent — inspect the game that is running
-
-The plugin registers the Runtime Agent as an autoload. It supports remote scene/property inspection, method calls, pause/resume/single-step, screenshots, 2D/3D ray queries, AudioServer control, keyboard/pointer/touch injection, logs, property watches, and rolling frame metrics.
-
-## What You Can Do
-
-| Area | Example capabilities | Why it is useful |
+| Area | Examples | Typical result |
 | --- | --- | --- |
-| **Project intelligence** | Discover projects, read `project.godot`, search files, inspect resources and UIDs, build compact project context | Understand an unfamiliar project before changing it |
-| **Scene authoring** | Create, inspect, duplicate, and save scenes; add, move, rename, remove, and configure nodes | Turn structured requests into Godot-native scene changes |
-| **2D and TileMap** | Create sprites and Control nodes, 2D cameras/lights, inspect TileMaps, set cells | Iterate on levels and presentation without manual node setup |
-| **3D editing** | Create primitive meshes, cameras, lights, transforms, standard materials, and material assignments | Block out and light a playable 3D scene quickly |
-| **UI authoring** | Create screens and semantic controls, configure layouts, inspect UI hierarchy, apply theme overrides | Produce consistent menus, HUDs, dialogs, and responsive layouts |
-| **Visual style** | Particles, shaders, screen flashes, post-process environments, CanvasModulate, animation effects, stylized 2D palette and 3D filmic rendering | Establish a cohesive visual direction with named parameters |
-| **Animation and systems** | Animation tracks/keys, AnimationTree state, navigation nodes/agents, collision shapes, physics-node inspection | Cover common gameplay-system setup without hiding details in generated files |
-| **Audio and Editor tools** | Audio buses and players, Script Editor navigation/debug state, breakpoints, plugin toggles, workspace controls, resource reimport | Keep supporting workflows close to scene authoring |
-| **Runtime debugging** | Remote tree/property access, method calls, pause/step, physics queries, audio control, captures | Diagnose live behavior instead of inferring it from files alone |
-| **Runtime observability** | Watched properties, change-event polling, runtime logs, rolling FPS/frame-time/memory metrics | Follow a value or performance trend during a playtest |
-| **Input simulation** | Key and mouse buttons, cursor movement, wheel, touch, touch-drag, and complete mouse drags | Exercise player and UI flows without taking over the desktop |
+| **Project intelligence** | `get_project_info`, file search, resources, UIDs, project context | Understand an unfamiliar project before editing it |
+| **Scene authoring** | Create, inspect, duplicate, save, add, move, rename, remove, and configure nodes | Make reproducible scene changes from structured requests |
+| **2D and UI** | Sprites, Control nodes, cameras, lights, UI screens, layout, Theme overrides | Build menus, HUDs, dialogs, and 2D prototypes |
+| **3D authoring** | Primitive meshes, cameras, lights, transforms, StandardMaterial, stylized rendering | Block out and light a playable 3D scene |
+| **Gameplay systems** | Animation tracks, AnimationTree state, navigation nodes, agents, collision shapes, audio | Set up common systems without hiding changes in generated files |
+| **Runtime verification** | Remote tree/properties, input injection, screenshots, ray/point/shape overlap queries, navigation paths, watches, logs, metrics | Reproduce issues and verify behavior with evidence |
 
-See the complete, versioned list in [docs/capabilities.md](docs/capabilities.md).
+See the complete operation inventory in [docs/capabilities.md](docs/capabilities.md).
 
 ## Quick Start
 
-### Prerequisites
+### 1. Check prerequisites
 
-- Node.js **18 or later**.
-- A Godot **4.x** executable. Set it through `GODOT_BIN` or `GODOT_PATH`, or expose `godot` / `godot4` on `PATH`.
-- A local MCP client that can start a stdio server.
+- Node.js **18 or newer**.
+- Godot **4.x** available through `GODOT_BIN`, `GODOT_PATH`, or the `godot` / `godot4` command on `PATH`.
+- An MCP client that can launch a local stdio server.
 
-### Build the server
+### 2. Install and build
 
 ```powershell
 git clone https://github.com/woyucbugongdaitian/godot-mcp-toolkit.git
@@ -75,9 +72,11 @@ npm.cmd install
 npm.cmd run build
 ```
 
-### Add the MCP entry
+The generated entry point is `build/index.mjs`. Build from the repository root so the server can resolve its bundled Godot operation script.
 
-Replace the example paths with paths on your machine:
+### 3. Add the MCP server
+
+Copy this entry into your MCP client configuration and replace the two paths:
 
 ```json
 {
@@ -86,7 +85,7 @@ Replace the example paths with paths on your machine:
       "command": "node",
       "args": ["E:/Tools/godot-mcp-toolkit/build/index.mjs"],
       "env": {
-        "GODOT_PATH": "E:/Tools/Godot/Godot_v4.7-stable_win64.exe",
+        "GODOT_PATH": "E:/Tools/Godot/Godot_v4.x-stable_win64.exe",
         "GODOT_MCP_PROJECT": "E:/Games/MyGodotProject"
       }
     }
@@ -94,19 +93,26 @@ Replace the example paths with paths on your machine:
 }
 ```
 
-`GODOT_MCP_PROJECT` is optional. Without it, pass an absolute `projectPath` to each project-facing tool. A ready-to-copy template is in [examples/mcp-config.json](examples/mcp-config.json).
+`GODOT_MCP_PROJECT` is optional. If it is omitted, pass an absolute `projectPath` to each project-facing tool. A ready-to-copy template is available at [examples/mcp-config.json](examples/mcp-config.json).
 
-### Verify the connection
+### 4. Verify the connection
 
-Ask your MCP client to call `get_server_info`, then `get_godot_version`. For a first project inspection, call `get_project_info` and `get_game_context` with the target `projectPath`.
+Ask the MCP client to call these tools in order:
+
+1. `get_server_info` — confirms the server is reachable and reports capabilities.
+2. `get_godot_version` — confirms the Godot executable can be launched.
+3. `get_project_info` — reads project metadata and selected settings.
+4. `get_game_context` — builds a compact project graph for the assistant.
+
+If all four calls succeed, the headless workflow is ready. Continue with the [detailed tutorial](docs/tutorial.zh-CN.md) for a full inspect → edit → verify loop.
 
 ## Enable Live Editor and Runtime Control
 
-Live features are opt-in. They require the plugin and stay out of the default workflow when they are not needed.
+Live features are opt-in. They require the plugin and remain out of the default workflow when you only need headless automation.
 
 1. Copy `godot/addons/godot_mcp_pro` into the target project as `addons/godot_mcp_pro`.
 2. In Godot, open **Project Settings → Plugins** and enable **Godot MCP Toolkit**.
-3. Add these variables to the MCP server entry:
+3. Add the following variables to the MCP server entry:
 
 ```json
 {
@@ -116,37 +122,38 @@ Live features are opt-in. They require the plugin and stay out of the default wo
 ```
 
 4. Reload the Godot project and reconnect the MCP client.
-5. Call `bind_editor` before editing the open Editor. Use `run_project`, then `get_runtime_info`, when you want live game control.
+5. Call `bind_editor` before editing the open Editor.
+6. For runtime control, call `run_project`, then `get_runtime_info`.
 
-On Windows, the installer can copy the plugin and generate a starter MCP configuration:
+On Windows, the installer can copy the plugin and generate a starter configuration:
 
 ```powershell
-.\portable\install.ps1 -ProjectPath "E:\Games\MyGodotProject" -GodotPath "E:\Tools\Godot\Godot_v4.7-stable_win64.exe"
+.\portable\install.ps1 -ProjectPath "E:\Games\MyGodotProject" -GodotPath "E:\Tools\Godot\Godot_v4.x-stable_win64.exe"
 ```
 
-It does **not** enable the plugin inside Godot automatically. See [docs/editor-bridge.md](docs/editor-bridge.md) for setup and binding behavior.
+The installer does **not** enable the plugin inside Godot automatically. See [docs/editor-bridge.md](docs/editor-bridge.md) for binding rules and [docs/tutorial.zh-CN.md](docs/tutorial.zh-CN.md) for a complete walkthrough.
 
-## Use Only the Tools You Need
+## Expose Only the Tools You Need
 
-Set `GODOT_MCP_TOOL_GROUPS` to a comma-separated list so the MCP client sees the capabilities relevant to the current task:
+Set `GODOT_MCP_TOOL_GROUPS` to a comma-separated list so the MCP client sees only the capabilities relevant to the current task:
 
 | Focus | Suggested groups |
 | --- | --- |
 | Project repair or code generation | `project,scenes,nodes,scripts,resources,performance,ai,diagnostics` |
 | 2D level and UI work | `editor,ui,effects,project,scenes,nodes,scripts,visuals,tilemap` |
 | 3D blockout and game systems | `editor,advanced_editor,effects,project,scenes,nodes,animation,resources` |
-| Runtime test and debug pass | `runtime,performance,diagnostics` |
+| Runtime test and debugging | `runtime,performance,diagnostics` |
 | Full workstation setup | `all` |
 
-`editor`, `ui`, `effects`, and `advanced_editor` require the live Editor Bridge. Remote runtime tools also require the plugin; headless project runs, captured output, input simulation, and automation tests remain available without it.
+The `editor`, `ui`, `effects`, and `advanced_editor` groups require the live Editor Bridge. Remote runtime tools also require the plugin; `run_project`, output capture, headless input simulation, and automation tests remain available without it.
 
-## Common Workflows
+## Workflow Recipes
 
 ### Understand and improve an existing project
 
 1. Call `get_project_info`, `list_scenes`, and `get_game_context`.
 2. Ask the assistant to identify the relevant scene, scripts, and resources.
-3. Make focused changes with `create_script`, `write_file`, scene tools, or live Editor operations.
+3. Make focused changes with project, scene, script, or live Editor tools.
 4. Run `check_project`, `analyze_script`, and `run_automation_test` before moving on.
 
 **Example request:** “Inspect this project, find the title scene, add a start button that loads the main scene, and run parser checks.”
@@ -154,62 +161,58 @@ Set `GODOT_MCP_TOOL_GROUPS` to a comma-separated list so the MCP client sees the
 ### Build a polished 2D screen
 
 1. Enable the Editor Bridge and call `bind_editor`.
-2. Create a screen with `create_ui_screen` and controls with `create_ui_component`.
-3. Use `configure_control_layout`, `set_theme_override`, and `inspect_ui_layout` to refine it.
-4. Add a transition, particle, or palette pass with the effects tools, then capture an Editor screenshot.
+2. Create a hierarchy with `create_ui_screen` and `create_ui_component`.
+3. Refine layout with `configure_control_layout`, theme with `set_theme_override`, and structure with `inspect_ui_layout`.
+4. Add a transition or visual pass, then capture an Editor screenshot for review.
 
 **Example request:** “Create a responsive pause menu with Resume, Settings, and Quit actions. Center it, use a dark translucent panel, and add a quick fade-in.”
-
-### Block out and light a 3D prototype
-
-1. Create a root scene and add primitive meshes.
-2. Add a `create_3d_camera`, `create_3d_light`, collision shapes, and navigation nodes.
-3. Use `set_editor_transform`, material tools, and `configure_stylized_rendering` to establish composition and mood.
-4. Inspect the result and run the scene for a playtest.
-
-**Example request:** “Make a small third-person test arena with a floor, three colored obstacles, a camera, soft directional lighting, and a foggy filmic look.”
 
 ### Debug a running game with live signals
 
 1. Run the project and call `get_runtime_info` to establish the runtime binding.
-2. Inspect the remote scene tree and configure watches for health, velocity, or state.
-3. Call `poll_runtime_observability` during a test to receive property changes, logs, and rolling frame metrics.
-4. Inject keyboard, mouse, touch, wheel, or drag input to reproduce the issue; capture a screenshot or call a runtime method when needed.
+2. Inspect the remote tree and configure watches for health, velocity, or state.
+3. Poll `poll_runtime_observability` while reproducing the issue.
+4. Inject keyboard, mouse, touch, wheel, or drag input and capture evidence.
 5. Finish with `release_runtime_binding` and `stop_project`.
 
-**Example request:** “Launch the current scene, watch the player’s health and movement state, simulate a drag across the inventory, and report new warnings plus average frame time.”
+**Example request:** “Launch the current scene, watch the player’s health and movement state, simulate an inventory drag, and report new warnings plus average frame time.”
 
-## Safety, Scope, and Session Binding
+## Configuration Reference
 
-- **Explicit project scope:** project operations require an absolute `projectPath` unless a default project is configured.
-- **One conversation, one live target:** the first Editor or Runtime request binds that MCP server process to one project for 90 seconds of inactivity. Editor and Runtime bindings are separate.
-- **Release deliberately:** call `release_editor_binding` or `release_runtime_binding` before moving the same conversation to another project.
-- **Undo-aware live changes:** Editor Bridge authoring operations are designed to integrate with Godot’s Editor workflow, including Undo/Redo where the Godot API supports it.
-- **Local bridge:** live communication uses loopback WebSocket connections; no cloud relay or external game service is required.
-- **Graceful compatibility:** Godot 4 API differences are checked at runtime; unsupported operations return structured errors instead of crashing the MCP process.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `GODOT_BIN` | No | Preferred Godot executable path for local launches and portable helpers. |
+| `GODOT_PATH` | No | Alternate Godot executable path used by the MCP server configuration. |
+| `GODOT_MCP_PROJECT` | No | Default absolute project path for project-facing operations. |
+| `GODOT_MCP_ENABLE_EDITOR_BRIDGE` | No | Set to `1` to enable live Editor Bridge forwarding. |
+| `GODOT_MCP_TOOL_GROUPS` | No | Comma-separated tool groups, or `all`. |
+| `GODOT_MCP_RUNTIME_PORT` | No | Override the runtime port used for a launched project. |
+| `GODOT_MCP_EXTENSIONS_DIR` | No | Directory containing optional `.mjs` tool extensions. |
 
-## Project Layout
+## Session Safety
 
-```text
-server/                         MCP server and tool definitions
-godot/mcp_operations.gd         Headless Godot scene/resource operations
-godot/addons/godot_mcp_pro/     Editor Bridge and Runtime Agent plugin
-docs/                           Setup, compatibility, capabilities, roadmap
-examples/                       MCP configuration template
-portable/                       Windows and shell setup/launcher helpers
-test/                           MCP contract and binding coverage
-```
+- Project-facing operations use an explicit absolute `projectPath` unless `GODOT_MCP_PROJECT` is configured.
+- One MCP conversation binds to one live Editor or Runtime project at a time. Bindings expire after 90 seconds of inactivity.
+- Editor and Runtime bindings are independent. Call `release_editor_binding` or `release_runtime_binding` before switching projects.
+- Live Editor mutations are designed to participate in Godot’s Undo/Redo flow where the Godot API supports it.
+- The bridge uses local loopback WebSockets; no cloud relay or external game service is required.
+- Unsupported Godot 4.x APIs return structured errors instead of terminating the MCP process.
 
-## Documentation
+## Documentation Map
 
-| Guide | Read it when you need to… |
+| Guide | Use it when you need to… |
 | --- | --- |
-| [Capabilities](docs/capabilities.md) | scan the supported operation families |
+| [中文详细教程](docs/tutorial.zh-CN.md) | follow a complete install, configuration, editing, runtime, and troubleshooting walkthrough |
+| [Capabilities](docs/capabilities.md) | scan supported operation families |
 | [Editor Bridge and Runtime Agent](docs/editor-bridge.md) | enable the plugin, understand ports, or release a binding |
 | [Multi-project usage](docs/multi-project.md) | work safely across projects or Godot versions |
-| [Compatibility](docs/compatibility.md) | check protocol and Godot support expectations |
-| [Roadmap](docs/roadmap.md) | see the next deep-editor areas being prioritized |
+| [Compatibility](docs/compatibility.md) | check MCP protocol and Godot support expectations |
+| [Roadmap](docs/roadmap.md) | see active and planned deep-editor areas |
 | [Contributing](CONTRIBUTING.md) | propose changes or run local quality checks |
+
+## Current Boundaries
+
+Godot MCP Toolkit focuses on stable semantic operations rather than pixel-level imitation of every Editor panel. Mesh and skeleton editing, advanced animation graph authoring, Navigation mesh baking, detailed physics debug visualization, Audio Bus effect-chain analysis, export preset execution, and advanced TileMap/Theme sub-editing remain roadmap work. See [docs/roadmap.md](docs/roadmap.md) for the current boundary.
 
 ## Development
 
@@ -221,10 +224,6 @@ npm.cmd run build
 
 The test suite covers the MCP contract and one-to-one Editor/Runtime binding behavior.
 
-## Current Boundaries
-
-Godot MCP Toolkit focuses on stable semantic operations, not pixel-level imitation of every Editor panel. Deep areas such as mesh/skeleton editing, advanced animation graph authoring, Navigation mesh baking, detailed physics debug visualization, Audio Bus effect-chain analysis, export preset execution, and advanced TileMap/Theme sub-editing remain active roadmap work. See [docs/roadmap.md](docs/roadmap.md) for the current direction.
-
-## License and Attribution
+## License
 
 Released under the [MIT License](LICENSE). This is an independent community implementation; see [NOTICE.md](NOTICE.md) for attribution details.

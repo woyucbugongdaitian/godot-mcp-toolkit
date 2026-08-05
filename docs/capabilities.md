@@ -14,7 +14,7 @@
 
 ## Runtime Agent
 
-- Runtime scene tree/property inspection, property updates, method calls, pause/resume/step, screenshots, 2D/3D ray queries, and AudioServer control.
+- Runtime scene tree/property inspection, property updates, method calls, pause/resume/step, screenshots, 2D/3D ray, point, primitive-shape overlap, and navigation path queries, plus AudioServer control.
 - Keyboard and mouse-button injection plus pointer movement, wheel, touch, touch-drag, and complete mouse drags.
 - Property watch configuration and cursor-based polling for change events, Runtime Agent logs, and rolling frame metrics.
 

@@ -141,6 +141,10 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return capture_viewport(params)
 		"query_physics":
 			return query_physics(params)
+		"query_physics_shape":
+			return query_physics_shape(params)
+		"query_navigation_path":
+			return query_navigation_path(params)
 		"get_audio_state":
 			return ok_result(get_audio_state())
 		"set_audio_bus":
@@ -432,6 +436,11 @@ func vector2_from(value, fallback := Vector2.ZERO) -> Vector2:
 		return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
 	return fallback
 
+func vector3_from(value, fallback := Vector3.ZERO) -> Vector3:
+	if value is Dictionary:
+		return Vector3(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)), float(value.get("z", fallback.z)))
+	return fallback
+
 func capture_viewport(params: Dictionary) -> Dictionary:
 	var output_path := String(params.get("outputPath", ""))
 	if output_path.is_empty():
@@ -469,6 +478,140 @@ func query_physics(params: Dictionary) -> Dictionary:
 	var result_2d := root_2d.get_world_2d().direct_space_state.intersect_ray(query_2d)
 	return ok_result({"dimension": "2d", "hit": not result_2d.is_empty(), "result": serialize_value(result_2d)})
 
+func query_physics_shape(params: Dictionary) -> Dictionary:
+	var dimension := String(params.get("dimension", "2d"))
+	var query_type := String(params.get("queryType", "point"))
+	var position_value = params.get("position", {})
+	var collision_mask := int(params.get("collisionMask", 0x7fffffff))
+	var max_results := clampi(int(params.get("maxResults", 32)), 1, 128)
+	var collide_with_bodies := bool(params.get("collideWithBodies", true))
+	var collide_with_areas := bool(params.get("collideWithAreas", true))
+	if query_type != "point" and query_type != "shape":
+		return error_result("Physics overlap queryType must be point or shape")
+	if dimension == "3d":
+		var root_3d := runtime_root() as Node3D
+		if root_3d == null:
+			return error_result("A Node3D runtime scene is required for a 3D physics overlap query")
+		var space_state_3d := root_3d.get_world_3d().direct_space_state
+		if query_type == "point":
+			var point_query_3d := PhysicsPointQueryParameters3D.new()
+			point_query_3d.position = vector3_from(position_value)
+			point_query_3d.collision_mask = collision_mask
+			point_query_3d.collide_with_bodies = collide_with_bodies
+			point_query_3d.collide_with_areas = collide_with_areas
+			var point_results_3d := space_state_3d.intersect_point(point_query_3d, max_results)
+			return ok_result(overlap_query_result("3d", "point", point_results_3d))
+		var shape_3d := create_query_shape_3d(String(params.get("shape", "sphere")), params.get("size", {}))
+		if shape_3d == null:
+			return error_result("3D physics shape must be box, sphere, capsule, or cylinder")
+		var shape_query_3d := PhysicsShapeQueryParameters3D.new()
+		shape_query_3d.shape = shape_3d
+		var rotation_degrees := vector3_from(params.get("rotationDegrees", {}))
+		shape_query_3d.transform = Transform3D(Basis.from_euler(Vector3(deg_to_rad(rotation_degrees.x), deg_to_rad(rotation_degrees.y), deg_to_rad(rotation_degrees.z))), vector3_from(position_value))
+		shape_query_3d.collision_mask = collision_mask
+		shape_query_3d.collide_with_bodies = collide_with_bodies
+		shape_query_3d.collide_with_areas = collide_with_areas
+		var shape_results_3d := space_state_3d.intersect_shape(shape_query_3d, max_results)
+		return ok_result(overlap_query_result("3d", "shape", shape_results_3d))
+	var root_2d := runtime_root() as Node2D
+	if root_2d == null:
+		return error_result("A Node2D runtime scene is required for a 2D physics overlap query")
+	var space_state_2d := root_2d.get_world_2d().direct_space_state
+	if query_type == "point":
+		var point_query_2d := PhysicsPointQueryParameters2D.new()
+		point_query_2d.position = vector2_from(position_value)
+		point_query_2d.collision_mask = collision_mask
+		point_query_2d.collide_with_bodies = collide_with_bodies
+		point_query_2d.collide_with_areas = collide_with_areas
+		var point_results_2d := space_state_2d.intersect_point(point_query_2d, max_results)
+		return ok_result(overlap_query_result("2d", "point", point_results_2d))
+	var shape_2d := create_query_shape_2d(String(params.get("shape", "circle")), params.get("size", {}))
+	if shape_2d == null:
+		return error_result("2D physics shape must be circle, rectangle, or capsule")
+	var shape_query_2d := PhysicsShapeQueryParameters2D.new()
+	shape_query_2d.shape = shape_2d
+	shape_query_2d.transform = Transform2D(float(params.get("rotation", 0.0)), vector2_from(position_value))
+	shape_query_2d.collision_mask = collision_mask
+	shape_query_2d.collide_with_bodies = collide_with_bodies
+	shape_query_2d.collide_with_areas = collide_with_areas
+	var shape_results_2d := space_state_2d.intersect_shape(shape_query_2d, max_results)
+	return ok_result(overlap_query_result("2d", "shape", shape_results_2d))
+
+func query_navigation_path(params: Dictionary) -> Dictionary:
+	var dimension := String(params.get("dimension", "2d"))
+	var from_value = params.get("from", {})
+	var to_value = params.get("to", {})
+	var optimize := bool(params.get("optimize", true))
+	var navigation_layers := max(int(params.get("navigationLayers", 1)), 1)
+	if dimension == "3d":
+		var root_3d := runtime_root() as Node3D
+		if root_3d == null:
+			return error_result("A Node3D runtime scene is required for a 3D navigation query")
+		var navigation_map_3d := root_3d.get_world_3d().navigation_map
+		if not navigation_map_3d.is_valid():
+			return error_result("The 3D runtime world has no active navigation map")
+		var path_3d := NavigationServer3D.map_get_path(navigation_map_3d, vector3_from(from_value), vector3_from(to_value), optimize, navigation_layers)
+		return ok_result(navigation_path_result("3d", path_3d))
+	var root_2d := runtime_root() as Node2D
+	if root_2d == null:
+		return error_result("A Node2D runtime scene is required for a 2D navigation query")
+	var navigation_map_2d := root_2d.get_world_2d().navigation_map
+	if not navigation_map_2d.is_valid():
+		return error_result("The 2D runtime world has no active navigation map")
+	var path_2d := NavigationServer2D.map_get_path(navigation_map_2d, vector2_from(from_value), vector2_from(to_value), optimize, navigation_layers)
+	return ok_result(navigation_path_result("2d", path_2d))
+
+func overlap_query_result(dimension: String, query_type: String, results: Array) -> Dictionary:
+	return {"dimension": dimension, "queryType": query_type, "hitCount": results.size(), "results": serialize_value(results)}
+
+func navigation_path_result(dimension: String, path) -> Dictionary:
+	var points := []
+	for point in path:
+		points.append(serialize_value(point))
+	return {"dimension": dimension, "pointCount": points.size(), "path": points}
+
+func create_query_shape_2d(shape_name: String, size_value) -> Shape2D:
+	var size = size_value if size_value is Dictionary else {}
+	match shape_name:
+		"circle":
+			var circle := CircleShape2D.new()
+			circle.radius = max(float(size.get("radius", 16.0)), 0.001)
+			return circle
+		"rectangle":
+			var rectangle := RectangleShape2D.new()
+			rectangle.size = vector2_from(size, Vector2(32.0, 32.0)).abs()
+			return rectangle
+		"capsule":
+			var capsule := CapsuleShape2D.new()
+			capsule.radius = max(float(size.get("radius", 8.0)), 0.001)
+			capsule.height = max(float(size.get("height", 32.0)), capsule.radius * 2.0)
+			return capsule
+		_:
+			return null
+
+func create_query_shape_3d(shape_name: String, size_value) -> Shape3D:
+	var size = size_value if size_value is Dictionary else {}
+	match shape_name:
+		"box":
+			var box := BoxShape3D.new()
+			box.size = vector3_from(size, Vector3.ONE).abs()
+			return box
+		"sphere":
+			var sphere := SphereShape3D.new()
+			sphere.radius = max(float(size.get("radius", 0.5)), 0.001)
+			return sphere
+		"capsule":
+			var capsule := CapsuleShape3D.new()
+			capsule.radius = max(float(size.get("radius", 0.5)), 0.001)
+			capsule.height = max(float(size.get("height", 2.0)), capsule.radius * 2.0)
+			return capsule
+		"cylinder":
+			var cylinder := CylinderShape3D.new()
+			cylinder.radius = max(float(size.get("radius", 0.5)), 0.001)
+			cylinder.height = max(float(size.get("height", 1.0)), 0.001)
+			return cylinder
+		_:
+			return null
 func get_audio_state() -> Dictionary:
 	var buses := []
 	for index in range(AudioServer.bus_count):
