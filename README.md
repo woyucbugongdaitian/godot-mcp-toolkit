@@ -75,7 +75,27 @@ npm.cmd run build
 
 The generated entry point is `build/index.mjs`. Build from the repository root so the server can resolve its bundled Godot operation script.
 
-### 3. Add the MCP server
+### 3. Update an existing installation
+
+If you originally installed by cloning the repository, update it from the Toolkit directory:
+
+```powershell
+git pull
+npm.cmd install
+npm.cmd run build
+```
+
+Restart the MCP client after the update. If the release includes Godot plugin changes, synchronize the copied plugin into the target project again:
+
+```powershell
+.\portable\install.ps1 `
+  -ProjectPath "E:\Games\MyGodotProject" `
+  -GodotPath "E:\Tools\Godot\Godot.exe"
+```
+
+The plugin is copied into the target project's `addons/godot_mcp_pro`; `git pull` does not update that project copy automatically. The installer creates a timestamped backup before replacing an existing plugin. For a global installation, run `portable/install-global.ps1` again after updating the repository. When projects are launched through `Open with Godot MCP`, the launcher synchronizes the plugin during startup.
+
+### 4. Add the MCP server
 
 Copy this entry into your MCP client configuration and replace the two paths:
 
@@ -96,7 +116,7 @@ Copy this entry into your MCP client configuration and replace the two paths:
 
 `GODOT_MCP_PROJECT` is optional. If it is omitted, pass an absolute `projectPath` to each project-facing tool. A ready-to-copy template is available at [examples/mcp-config.json](examples/mcp-config.json).
 
-### 4. Verify the connection
+### 5. Verify the connection
 
 Ask the MCP client to call these tools in order:
 

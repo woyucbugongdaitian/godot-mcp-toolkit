@@ -102,7 +102,27 @@ npm.cmd run build
 
 构建后的入口是 `build/index.mjs`。请从仓库根目录构建，以便 Server 正确找到内置的 Godot 操作脚本。
 
-### 3. 配置 MCP Server
+### 3. 安装后更新
+
+如果你最初是通过 Git 克隆仓库安装的，后续更新时在 Toolkit 仓库目录执行：
+
+```powershell
+git pull
+npm.cmd install
+npm.cmd run build
+```
+
+执行完成后重启 MCP 客户端。上面的命令会更新 MCP Server；如果本次版本包含 Godot 插件改动，还需要重新把插件同步到目标项目：
+
+```powershell
+.\portable\install.ps1 `
+  -ProjectPath "E:\Games\MyGodotProject" `
+  -GodotPath "E:\Tools\Godot\Godot.exe"
+```
+
+插件是复制到目标项目的 `addons/godot_mcp_pro`，不会因为 `git pull` 自动更新。安装脚本会在覆盖已有插件前创建带时间戳的备份。使用全局安装时，更新仓库后重新运行 `portable/install-global.ps1`；如果通过 `Open with Godot MCP` 启动项目，启动器会在启动时同步插件。
+
+### 4. 配置 MCP Server
 
 把下面配置加入 MCP 客户端，并替换两个本机路径：
 
@@ -123,7 +143,7 @@ npm.cmd run build
 
 `GODOT_MCP_PROJECT` 是可选项。不设置时，每次项目操作都传入绝对路径 `projectPath`。可直接复制的模板见 [examples/mcp-config.json](examples/mcp-config.json)。
 
-### 4. 验证连接
+### 5. 验证连接
 
 让 MCP 客户端按顺序调用：
 
