@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 extends EditorPlugin
 
 const STATE_PATH := "user://godot_mcp_pro_state.json"
@@ -247,6 +247,22 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return inspect_animation_timeline(params)
 		"set_animation_tree_state":
 			return set_animation_tree_state(params)
+		"edit_animation_state_machine":
+			return edit_animation_state_machine(params)
+		"edit_animation_curve":
+			return edit_animation_curve(params)
+		"configure_animation_timeline":
+			return configure_animation_timeline(params)
+		"edit_theme_resource":
+			return edit_theme_resource(params)
+		"assign_editor_resource":
+			return assign_editor_resource(params)
+		"edit_tileset_atlas":
+			return edit_tileset_atlas(params)
+		"paint_tilemap_terrain":
+			return paint_tilemap_terrain(params)
+		"edit_array_mesh":
+			return edit_array_mesh(params)
 		"create_navigation_node":
 			return create_navigation_node(params)
 		"configure_navigation_agent":
@@ -1003,6 +1019,37 @@ func vector2_from_params(value, fallback: Vector2) -> Vector2:
 		return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
 	return fallback
 
+func vector2i_from_params(value, fallback: Vector2i) -> Vector2i:
+	if value is Dictionary:
+		return Vector2i(int(value.get("x", fallback.x)), int(value.get("y", fallback.y)))
+	return fallback
+
+func vector3_from_params(value, fallback: Vector3) -> Vector3:
+	if value is Dictionary:
+		return Vector3(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)), float(value.get("z", fallback.z)))
+	return fallback
+
+func packed_vector2_from_params(values) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	if values is Array:
+		for value in values:
+			result.append(vector2_from_params(value, Vector2.ZERO))
+	return result
+
+func packed_vector3_from_params(values) -> PackedVector3Array:
+	var result := PackedVector3Array()
+	if values is Array:
+		for value in values:
+			result.append(vector3_from_params(value, Vector3.ZERO))
+	return result
+
+func packed_int32_from_params(values) -> PackedInt32Array:
+	var result := PackedInt32Array()
+	if values is Array:
+		for value in values:
+			result.append(int(value))
+	return result
+
 func create_primitive_mesh(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var parent := resolve_node(root, String(params.get("parentPath", ".")))
@@ -1213,6 +1260,250 @@ func set_animation_tree_state(params: Dictionary) -> Dictionary:
 			values[String(key)] = decode_value(params.parameters[key])
 	return ok_result(apply_properties_undo(tree, values, "Godot MCP Set AnimationTree State"))
 
+func edit_animation_state_machine(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var tree := resolve_node(root, String(params.get("animationTreePath", "")))
+	if tree == null or not tree is AnimationTree:
+		return error_result("AnimationTree not found")
+	var action := String(params.get("action", ""))
+	if action == "create":
+		if tree.tree_root != null:
+			if tree.tree_root is AnimationNodeStateMachine:
+				return ok_result({"created": false, "stateMachine": describe_animation_state_machine(tree.tree_root)})
+			return error_result("AnimationTree already has a non-state-machine tree_root")
+		var state_machine := AnimationNodeStateMachine.new()
+		var updated := apply_properties_undo(tree, {"tree_root": state_machine}, "Godot MCP Create Animation State Machine")
+		updated["created"] = true
+		updated["stateMachine"] = describe_animation_state_machine(state_machine)
+		return ok_result(updated)
+	var state_machine := get_animation_state_machine(tree)
+	if state_machine == null:
+		return error_result("AnimationTree tree_root is not an AnimationNodeStateMachine")
+	if action == "inspect":
+		return ok_result({"nodePath": String(tree.get_path()), "stateMachine": describe_animation_state_machine(state_machine)})
+	if action == "add_state":
+		var state_name := String(params.get("stateName", "")).strip_edges()
+		var animation_path := String(params.get("animationPath", "")).strip_edges()
+		if state_name.is_empty() or animation_path.is_empty():
+			return error_result("stateName and animationPath are required when adding an animation state")
+		if state_machine.has_node(state_name):
+			return error_result("Animation state already exists: %s" % state_name)
+		var animation_node := AnimationNodeAnimation.new()
+		animation_node.animation = StringName(animation_path)
+		var position := vector2_from_params(params.get("position", {}), Vector2.ZERO)
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Add Animation State")
+		undo.add_do_method(state_machine, "add_node", StringName(state_name), animation_node, position)
+		undo.add_undo_method(state_machine, "remove_node", StringName(state_name))
+		undo.commit_action()
+		return ok_result({"stateName": state_name, "added": true, "stateMachine": describe_animation_state_machine(state_machine)})
+	if action == "add_transition":
+		var from_state := String(params.get("fromState", "")).strip_edges()
+		var to_state := String(params.get("toState", "")).strip_edges()
+		if from_state.is_empty() or to_state.is_empty() or not state_machine.has_node(from_state) or not state_machine.has_node(to_state):
+			return error_result("fromState and toState must reference existing animation states")
+		if state_machine.has_transition(from_state, to_state):
+			return error_result("Animation transition already exists: %s -> %s" % [from_state, to_state])
+		var transition := AnimationNodeStateMachineTransition.new()
+		transition.xfade_time = float(params.get("xfadeTime", 0.2))
+		transition.reset = bool(params.get("reset", false))
+		transition.priority = int(params.get("priority", 1))
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Add Animation Transition")
+		undo.add_do_method(state_machine, "add_transition", StringName(from_state), StringName(to_state), transition)
+		undo.add_undo_method(state_machine, "remove_transition", StringName(from_state), StringName(to_state))
+		undo.commit_action()
+		return ok_result({"fromState": from_state, "toState": to_state, "added": true, "stateMachine": describe_animation_state_machine(state_machine)})
+	return error_result("Unsupported animation state machine action: %s" % action)
+
+func get_animation_state_machine(tree: AnimationTree) -> AnimationNodeStateMachine:
+	if tree.tree_root is AnimationNodeStateMachine:
+		return tree.tree_root as AnimationNodeStateMachine
+	return null
+
+func describe_animation_state_machine(state_machine: AnimationNodeStateMachine) -> Dictionary:
+	var states := []
+	for state_name in state_machine.get_node_list():
+		var state_node := state_machine.get_node(state_name)
+		var state := {"name": String(state_name), "type": state_node.get_class(), "position": serialize_value(state_machine.get_node_position(state_name))}
+		if state_node is AnimationNodeAnimation:
+			state["animationPath"] = String(state_node.animation)
+		states.append(state)
+	var transitions := []
+	for index in range(state_machine.get_transition_count()):
+		var transition := state_machine.get_transition(index)
+		transitions.append({"index": index, "fromState": String(state_machine.get_transition_from(index)), "toState": String(state_machine.get_transition_to(index)), "xfadeTime": transition.xfade_time, "reset": transition.reset, "priority": transition.priority})
+	return {"states": states, "transitions": transitions, "graphOffset": serialize_value(state_machine.get_graph_offset())}
+
+func edit_animation_curve(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var player := resolve_node(root, String(params.get("animationPlayerPath", "")))
+	if player == null or not player is AnimationPlayer:
+		return error_result("AnimationPlayer not found")
+	var animation := get_or_create_animation(player, String(params.get("animationName", "")))
+	var track_path := NodePath("%s:%s" % [String(params.get("targetNodePath", "")), String(params.get("property", ""))])
+	var track := animation.find_track(track_path, Animation.TYPE_BEZIER)
+	if track < 0:
+		track = animation.add_track(Animation.TYPE_BEZIER)
+		animation.track_set_path(track, track_path)
+	var action := String(params.get("action", ""))
+	if action == "create_track":
+		return ok_result({"animationName": String(params.get("animationName", "")), "track": track, "path": String(track_path), "created": true})
+	if action != "set_key":
+		return error_result("Unsupported animation curve action: %s" % action)
+	if not params.has("time") or not params.has("value"):
+		return error_result("time and value are required when setting a Bezier key")
+	var time := float(params.get("time", 0.0))
+	var in_handle := vector2_from_params(params.get("inHandle", {}), Vector2.ZERO)
+	var out_handle := vector2_from_params(params.get("outHandle", {}), Vector2.ZERO)
+	var key_index := animation.bezier_track_insert_key(track, time, float(params.get("value", 0.0)), in_handle, out_handle)
+	animation.length = max(animation.length, time)
+	return ok_result({"animationName": String(params.get("animationName", "")), "track": track, "keyIndex": key_index, "time": time, "keyInserted": true})
+
+func configure_animation_timeline(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var player := resolve_node(root, String(params.get("animationPlayerPath", "")))
+	if player == null or not player is AnimationPlayer:
+		return error_result("AnimationPlayer not found")
+	var animation := get_or_create_animation(player, String(params.get("animationName", "")))
+	var values := {}
+	if params.has("length"):
+		values["length"] = float(params.get("length", animation.length))
+	if params.has("step"):
+		values["step"] = float(params.get("step", animation.step))
+	if params.has("loopMode"):
+		match String(params.get("loopMode", "none")):
+			"none": values["loop_mode"] = Animation.LOOP_NONE
+			"linear": values["loop_mode"] = Animation.LOOP_LINEAR
+			"pingpong": values["loop_mode"] = Animation.LOOP_PINGPONG
+			_: return error_result("loopMode must be none, linear, or pingpong")
+	if values.is_empty():
+		return ok_result({"animationName": String(params.get("animationName", "")), "updated": false, "length": animation.length, "step": animation.step, "loopMode": animation.loop_mode})
+	var result := apply_properties_undo(animation, values, "Godot MCP Configure Animation Timeline")
+	result["animationName"] = String(params.get("animationName", ""))
+	result["length"] = animation.length
+	result["step"] = animation.step
+	result["loopMode"] = animation.loop_mode
+	return ok_result(result)
+func edit_array_mesh(params: Dictionary) -> Dictionary:
+	var action := String(params.get("action", ""))
+	var root := EditorInterface.get_edited_scene_root()
+	if action == "create":
+		var parent := resolve_node(root, String(params.get("parentPath", ".")))
+		if parent == null or not parent is Node3D:
+			return error_result("Node3D parent not found")
+		var arrays_result := build_array_mesh_arrays(params)
+		if not bool(arrays_result.get("ok", false)):
+			return error_result(String(arrays_result.get("error", "ArrayMesh data is invalid")))
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(mesh_primitive_from_name(String(params.get("primitive", "triangles"))), arrays_result.arrays)
+		if params.has("materialPath"):
+			var material = ResourceLoader.load(String(params.get("materialPath", "")))
+			if material == null or not material is Material:
+				return error_result("Material resource not found")
+			mesh.surface_set_material(0, material)
+		var node := MeshInstance3D.new()
+		node.name = String(params.get("nodeName", "McpArrayMesh"))
+		node.mesh = mesh
+		apply_transform(node, params.get("transform", {}))
+		var created := add_node_undo(parent, node, root, "Godot MCP Create ArrayMesh")
+		created["surfaceCount"] = mesh.get_surface_count()
+		return ok_result(created)
+	var node := resolve_node(root, String(params.get("nodePath", "")))
+	if node == null or not node is MeshInstance3D or node.mesh == null or not node.mesh is ArrayMesh:
+		return error_result("MeshInstance3D with an editable ArrayMesh not found")
+	var mesh := node.mesh as ArrayMesh
+	if action == "inspect":
+		return ok_result(describe_array_mesh(node, mesh, bool(params.get("includeVertices", false)), clampi(int(params.get("maxVertices", 256)), 1, 10000)))
+	if action != "update_surface":
+		return error_result("Unsupported ArrayMesh action: %s" % action)
+	var surface := int(params.get("surface", 0))
+	if surface < 0 or surface >= mesh.get_surface_count():
+		return error_result("ArrayMesh surface index is out of range")
+	if not params.has("vertices") and not params.has("normals") and not params.has("uvs") and not params.has("indices"):
+		return error_result("At least one of vertices, normals, uvs, or indices is required")
+	var old_arrays := mesh.surface_get_arrays(surface)
+	var next_arrays := old_arrays.duplicate(true)
+	if params.has("vertices"):
+		next_arrays[ArrayMesh.ARRAY_VERTEX] = packed_vector3_from_params(params.get("vertices", []))
+	var vertex_count := (next_arrays[ArrayMesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	if vertex_count == 0:
+		return error_result("ArrayMesh surface must contain at least one vertex")
+	if params.has("normals"):
+		var normals := packed_vector3_from_params(params.get("normals", []))
+		if normals.size() != vertex_count:
+			return error_result("normals must contain one value per vertex")
+		next_arrays[ArrayMesh.ARRAY_NORMAL] = normals
+	if params.has("uvs"):
+		var uvs := packed_vector2_from_params(params.get("uvs", []))
+		if uvs.size() != vertex_count:
+			return error_result("uvs must contain one value per vertex")
+		next_arrays[ArrayMesh.ARRAY_TEX_UV] = uvs
+	if params.has("indices"):
+		next_arrays[ArrayMesh.ARRAY_INDEX] = packed_int32_from_params(params.get("indices", []))
+	var undo := EditorInterface.get_editor_undo_redo()
+	undo.create_action("Godot MCP Update ArrayMesh Surface")
+	undo.add_do_method(self, "replace_array_mesh_surface", mesh, surface, next_arrays)
+	undo.add_undo_method(self, "replace_array_mesh_surface", mesh, surface, old_arrays)
+	undo.commit_action()
+	return ok_result({"nodePath": String(node.get_path()), "surface": surface, "vertexCount": vertex_count, "updated": true, "undoable": true})
+
+func mesh_primitive_from_name(name: String) -> Mesh.PrimitiveType:
+	match name:
+		"triangles": return Mesh.PRIMITIVE_TRIANGLES
+		"lines": return Mesh.PRIMITIVE_LINES
+		"line_strip": return Mesh.PRIMITIVE_LINE_STRIP
+		"points": return Mesh.PRIMITIVE_POINTS
+		_: return Mesh.PRIMITIVE_TRIANGLES
+
+func build_array_mesh_arrays(params: Dictionary) -> Dictionary:
+	var vertices := packed_vector3_from_params(params.get("vertices", []))
+	if vertices.is_empty():
+		return {"ok": false, "error": "vertices must contain at least one Vector3"}
+	var arrays := []
+	arrays.resize(ArrayMesh.ARRAY_MAX)
+	arrays[ArrayMesh.ARRAY_VERTEX] = vertices
+	if params.has("normals"):
+		var normals := packed_vector3_from_params(params.get("normals", []))
+		if normals.size() != vertices.size():
+			return {"ok": false, "error": "normals must contain one value per vertex"}
+		arrays[ArrayMesh.ARRAY_NORMAL] = normals
+	if params.has("uvs"):
+		var uvs := packed_vector2_from_params(params.get("uvs", []))
+		if uvs.size() != vertices.size():
+			return {"ok": false, "error": "uvs must contain one value per vertex"}
+		arrays[ArrayMesh.ARRAY_TEX_UV] = uvs
+	if params.has("indices"):
+		arrays[ArrayMesh.ARRAY_INDEX] = packed_int32_from_params(params.get("indices", []))
+	return {"ok": true, "arrays": arrays}
+
+func describe_array_mesh(node: MeshInstance3D, mesh: ArrayMesh, include_vertices: bool, max_vertices: int) -> Dictionary:
+	var surfaces := []
+	for surface in range(mesh.get_surface_count()):
+		var arrays := mesh.surface_get_arrays(surface)
+		var vertices = arrays[ArrayMesh.ARRAY_VERTEX]
+		var indices = arrays[ArrayMesh.ARRAY_INDEX]
+		var item := {"index": surface, "primitive": mesh.surface_get_primitive_type(surface), "vertexCount": vertices.size(), "indexCount": indices.size(), "material": serialize_value(mesh.surface_get_material(surface))}
+		if include_vertices:
+			var values := []
+			for index in range(min(vertices.size(), max_vertices)):
+				values.append(serialize_value(vertices[index]))
+			item["vertices"] = values
+			item["truncated"] = vertices.size() > values.size()
+		surfaces.append(item)
+	return {"nodePath": String(node.get_path()), "mesh": serialize_value(mesh), "surfaceCount": surfaces.size(), "surfaces": surfaces}
+
+func replace_array_mesh_surface(mesh: ArrayMesh, target_surface: int, replacement_arrays: Array) -> void:
+	var snapshots := []
+	for surface in range(mesh.get_surface_count()):
+		snapshots.append({"primitive": mesh.surface_get_primitive_type(surface), "arrays": mesh.surface_get_arrays(surface).duplicate(true), "material": mesh.surface_get_material(surface)})
+	snapshots[target_surface]["arrays"] = replacement_arrays.duplicate(true)
+	mesh.clear_surfaces()
+	for surface in range(snapshots.size()):
+		var snapshot = snapshots[surface]
+		mesh.add_surface_from_arrays(snapshot.primitive, snapshot.arrays)
+		if snapshot.material != null:
+			mesh.surface_set_material(surface, snapshot.material)
 func create_navigation_node(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var parent := resolve_node(root, String(params.get("parentPath", ".")))
@@ -1353,6 +1644,146 @@ func create_theme_resource(params: Dictionary) -> Dictionary:
 		return error_result("Cannot save Theme resource: %s" % save_error)
 	return ok_result({"resourcePath": save_path, "created": true})
 
+func edit_theme_resource(params: Dictionary) -> Dictionary:
+	var resource_path := String(params.get("resourcePath", ""))
+	var theme = ResourceLoader.load(resource_path)
+	if theme == null or not theme is Theme:
+		return error_result("Theme resource not found: %s" % resource_path)
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result(describe_theme_resource(theme, resource_path))
+	if action != "set_item":
+		return error_result("Unsupported Theme action: %s" % action)
+	var item_type := String(params.get("itemType", ""))
+	var control_type := String(params.get("controlType", "Control")).strip_edges()
+	var item_name := String(params.get("name", "")).strip_edges()
+	if control_type.is_empty() or item_name.is_empty():
+		return error_result("controlType and name are required when setting a Theme item")
+	match item_type:
+		"color":
+			theme.set_color(item_name, control_type, parse_color(params.get("value", "#ffffff")))
+		"constant":
+			theme.set_constant(item_name, control_type, int(params.get("value", 0)))
+		"font_size":
+			theme.set_font_size(item_name, control_type, int(params.get("value", theme.default_font_size)))
+		"stylebox":
+			var stylebox := make_stylebox(params.get("style", {}))
+			if stylebox == null:
+				return error_result("style must describe a StyleBoxFlat")
+			theme.set_stylebox(item_name, control_type, stylebox)
+		_:
+			return error_result("itemType must be color, constant, font_size, or stylebox")
+	var save_error := ResourceSaver.save(theme, resource_path)
+	if save_error != OK:
+		return error_result("Cannot save Theme resource: %s" % save_error)
+	return ok_result({"resourcePath": resource_path, "itemType": item_type, "controlType": control_type, "name": item_name, "saved": true})
+
+func describe_theme_resource(theme: Theme, resource_path: String) -> Dictionary:
+	var types := []
+	for type_name in theme.get_type_list():
+		types.append(String(type_name))
+	return {"resourcePath": resource_path, "defaultFontSize": theme.default_font_size, "types": types}
+
+func assign_editor_resource(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var node := resolve_node(root, String(params.get("nodePath", "")))
+	var property_name := String(params.get("property", ""))
+	var resource_path := String(params.get("resourcePath", ""))
+	var resource = ResourceLoader.load(resource_path)
+	if node == null or property_name.is_empty() or not has_property(node, property_name):
+		return error_result("Node or serializable property not found")
+	if resource == null:
+		return error_result("Resource cannot be loaded: %s" % resource_path)
+	var result := apply_properties_undo(node, {property_name: resource}, "Godot MCP Assign Editor Resource")
+	result["nodePath"] = String(node.get_path())
+	result["property"] = property_name
+	result["resourcePath"] = resource_path
+	return ok_result(result)
+
+func resolve_tilemap_node(root: Node, path: String) -> Node:
+	var node := resolve_node(root, path)
+	if node is TileMapLayer or node is TileMap:
+		return node
+	return null
+
+func ensure_tile_set(tile_map: Node) -> TileSet:
+	if tile_map.tile_set is TileSet:
+		return tile_map.tile_set
+	var tile_set := TileSet.new()
+	apply_properties_undo(tile_map, {"tile_set": tile_set}, "Godot MCP Create TileSet")
+	return tile_set
+
+func edit_tileset_atlas(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var tile_map := resolve_tilemap_node(root, String(params.get("tileMapPath", "")))
+	if tile_map == null:
+		return error_result("TileMapLayer or TileMap not found")
+	var tile_set := ensure_tile_set(tile_map)
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result(describe_tileset_atlas(tile_map, tile_set))
+	if action == "create_source":
+		var texture_path := String(params.get("texturePath", ""))
+		var texture = ResourceLoader.load(texture_path)
+		if texture == null or not texture is Texture2D:
+			return error_result("Texture2D resource not found: %s" % texture_path)
+		var source_id := int(params.get("sourceId", -1))
+		if source_id < 0:
+			source_id = tile_set.get_next_source_id()
+		if tile_set.has_source(source_id):
+			return error_result("TileSet source already exists: %s" % source_id)
+		var atlas := TileSetAtlasSource.new()
+		atlas.texture = texture
+		atlas.texture_region_size = vector2i_from_params(params.get("regionSize", {}), Vector2i(16, 16))
+		tile_set.add_source(atlas, source_id)
+		return ok_result({"tileMapPath": String(tile_map.get_path()), "sourceId": source_id, "texturePath": texture_path, "created": true})
+	if action == "create_tile":
+		var source_id := int(params.get("sourceId", -1))
+		var source = tile_set.get_source(source_id)
+		if source == null or not source is TileSetAtlasSource:
+			return error_result("TileSetAtlasSource not found: %s" % source_id)
+		var coordinates := vector2i_from_params(params.get("tileCoordinates", {}), Vector2i.ZERO)
+		if source.has_tile(coordinates):
+			return error_result("Atlas tile already exists at %s" % coordinates)
+		var tile_size := vector2i_from_params(params.get("tileSize", {}), Vector2i.ONE)
+		source.create_tile(coordinates, tile_size)
+		return ok_result({"tileMapPath": String(tile_map.get_path()), "sourceId": source_id, "coordinates": serialize_value(coordinates), "tileSize": serialize_value(tile_size), "created": true})
+	return error_result("Unsupported TileSet atlas action: %s" % action)
+
+func describe_tileset_atlas(tile_map: Node, tile_set: TileSet) -> Dictionary:
+	var sources := []
+	for index in range(tile_set.get_source_count()):
+		var source_id := tile_set.get_source_id(index)
+		var source = tile_set.get_source(source_id)
+		var item := {"sourceId": source_id, "type": source.get_class()}
+		if source is TileSetAtlasSource:
+			var tiles := []
+			for coordinates in source.get_tiles_ids():
+				tiles.append(serialize_value(coordinates))
+			item["texturePath"] = source.texture.resource_path if source.texture else ""
+			item["regionSize"] = serialize_value(source.texture_region_size)
+			item["tiles"] = tiles
+		sources.append(item)
+	return {"tileMapPath": String(tile_map.get_path()), "tileSize": serialize_value(tile_set.tile_size), "sourceCount": sources.size(), "sources": sources}
+
+func paint_tilemap_terrain(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var tile_map := resolve_tilemap_node(root, String(params.get("tileMapPath", "")))
+	if tile_map == null:
+		return error_result("TileMapLayer or TileMap not found")
+	var cells := []
+	for cell in params.get("cells", []):
+		cells.append(vector2i_from_params(cell, Vector2i.ZERO))
+	if cells.is_empty():
+		return error_result("cells must contain at least one TileMap coordinate")
+	var terrain_set := int(params.get("terrainSet", 0))
+	var terrain := int(params.get("terrain", -1))
+	var ignore_empty := bool(params.get("ignoreEmptyTerrains", true))
+	if tile_map is TileMapLayer:
+		tile_map.set_cells_terrain_connect(cells, terrain_set, terrain, ignore_empty)
+	else:
+		tile_map.set_cells_terrain_connect(int(params.get("layer", 0)), cells, terrain_set, terrain, ignore_empty)
+	return ok_result({"tileMapPath": String(tile_map.get_path()), "cellCount": cells.size(), "terrainSet": terrain_set, "terrain": terrain, "painted": true})
 func list_editor_plugins() -> Dictionary:
 	var result := []
 	var addons := DirAccess.open("res://addons")
@@ -1537,6 +1968,10 @@ func decode_value(value):
 func serialize_value(value):
 	if value == null or value is bool or value is int or value is float or value is String:
 		return value
+	if value is Vector2i:
+		return {"type": "Vector2i", "value": [value.x, value.y]}
+	if value is Vector3i:
+		return {"type": "Vector3i", "value": [value.x, value.y, value.z]}
 	if value is Vector2:
 		return {"type": "Vector2", "value": [value.x, value.y]}
 	if value is Vector3:

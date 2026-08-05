@@ -44,16 +44,44 @@ flowchart LR
 
 ## 能力总览
 
-| 方向 | 示例 | 适合解决的问题 |
-| --- | --- | --- |
-| **项目理解** | `get_project_info`、文件搜索、资源、UID、项目上下文 | 修改前快速理解陌生项目 |
-| **场景创作** | 创建、检查、复制、保存、添加、移动、改名、删除和配置节点 | 将自然语言需求转成可复现的场景修改 |
-| **2D 与 UI** | 精灵、Control、相机、灯光、UI Screen、布局、Theme 覆盖 | 菜单、HUD、弹窗和 2D 原型 |
-| **3D 创作** | 原始网格、相机、灯光、Transform、StandardMaterial、风格化渲染 | 快速搭建和布置 3D 测试场景 |
-| **玩法系统** | 动画轨道、AnimationTree 状态、导航节点、Agent、碰撞形状、音频 | 不把关键修改隐藏在难以审查的生成文件里 |
-| **运行时验证** | 远程树/属性、输入注入、截图、射线/点/基础形状重叠查询、导航路径、Watch、日志、帧指标 | 复现问题并用运行证据确认结果 |
+当前仓库的内置工具数量是：
 
-完整工具清单见 [docs/capabilities.md](docs/capabilities.md)。
+- **默认 43 个**：无头项目、场景、脚本、资源、截图、测试和诊断能力；
+- **开启 Editor Bridge + `GODOT_MCP_TOOL_GROUPS=all` 后 149 个唯一工具**：增加编辑器、UI、3D、动画、Runtime Agent 和深度创作能力；
+- **按阅读体验整理为 23 类**：下面的分类数量相加为 149；如果通过 `GODOT_MCP_EXTENSIONS_DIR` 加载扩展，实际总数会继续增加。
+
+<details>
+<summary>展开 23 类功能清单</summary>
+
+| 类别 | 工具数 | 能做什么 |
+| --- | ---: | --- |
+| **服务与诊断** | 3 | Server 健康、能力信息、Godot 版本 |
+| **项目与上下文** | 5 | 项目发现、创建、设置和 AI 项目上下文 |
+| **文件与搜索** | 4 | 文件列表、读写和项目搜索 |
+| **资源与 UID** | 4 | 资源列表、引用关系、UID 读取与刷新 |
+| **场景** | 6 | 创建、复制、保存、场景树和节点检查 |
+| **节点** | 5 | 添加、删除、属性、精灵和 UI 节点 |
+| **脚本** | 3 | 创建、挂载和语法检查 |
+| **无头截图与校验** | 3 | 场景截图、项目检查、轻量性能采样 |
+| **无头启动与测试** | 6 | 启动、停止、输出、输入模拟和自动化测试 |
+| **编辑器连接与工作区** | 12 | Editor 绑定、插件、工作区、日志和资源重载 |
+| **编辑器场景与选择** | 16 | 场景树、选择集、Inspector、Undo/Redo 和视口截图 |
+| **编辑器脚本与调试** | 9 | Script Editor 状态、跳转、断点、调试和执行 |
+| **UI、Theme 与资源** | 8 | UI 屏幕、布局、颜色、字体、StyleBox 和资源赋值 |
+| **2D 与 3D 场景** | 8 | 网格、ArrayMesh、相机、灯光、Transform 和 3D 检查 |
+| **材质与渲染** | 4 | StandardMaterial、材质分配、调色和风格化渲染 |
+| **粒子、着色器与效果** | 7 | GPU 粒子、Shader、屏幕闪烁、后处理和视觉效果 |
+| **动画与时间轴** | 10 | AnimationPlayer、轨道、关键帧、AnimationTree、曲线和时间轴 |
+| **导航** | 4 | 导航节点、Agent、检查和运行时路径查询 |
+| **物理** | 5 | 碰撞形状、物理配置、射线、点和形状查询 |
+| **音频** | 7 | Audio Bus、播放器、播放、音量、静音和运行时状态 |
+| **TileMap** | 4 | TileMap 检查、单元格、图集和地形绘制 |
+| **运行时检查与控制** | 10 | 远程树、属性、方法、暂停、单步和绑定生命周期 |
+| **运行时输入、观测与截图** | 6 | 键鼠/指针输入、Watch、日志、帧指标和运行时截图 |
+
+</details>
+
+完整工具名、代表性调用和工具组说明见 [docs/capabilities.md](docs/capabilities.md)。
 
 ## 快速开始
 
@@ -132,6 +160,28 @@ Windows 可以使用安装助手复制插件并生成配置：
 ```
 
 安装助手**不会**自动替你在 Godot 内启用插件。绑定规则见 [docs/editor-bridge.md](docs/editor-bridge.md)，完整流程见 [docs/tutorial.zh-CN.md](docs/tutorial.zh-CN.md)。
+### 插件安装位置（必须一致）
+
+插件源码在仓库的 `godot/addons/godot_mcp_pro` 目录中。复制到你的 Godot 项目后，必须变成：
+
+```text
+你的项目/
+├─ project.godot
+└─ addons/
+   └─ godot_mcp_pro/
+      ├─ plugin.cfg
+      ├─ plugin.gd
+      └─ runtime_agent.gd
+```
+
+在 Godot 中依次打开 **Project → Project Settings → Plugins**，找到 **Godot MCP Toolkit** 并打开 **Enabled**。如果列表里没有插件，优先检查 `addons/godot_mcp_pro/plugin.cfg` 是否位于项目根目录下，而不是多了一层 `godot` 或 `addons`。
+
+CMD 手动复制示例：
+
+```bat
+xcopy /E /I /Y "E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro" "E:\Games\MyGodotProject\addons\godot_mcp_pro"
+```
+
 
 ## 按任务加载工具组
 
@@ -141,11 +191,11 @@ Windows 可以使用安装助手复制插件并生成配置：
 | --- | --- |
 | 工程修复或脚本生成 | `project,scenes,nodes,scripts,resources,performance,ai,diagnostics` |
 | 2D 地图和 UI | `editor,ui,effects,project,scenes,nodes,scripts,visuals,tilemap` |
-| 3D 原型和玩法系统 | `editor,advanced_editor,effects,project,scenes,nodes,animation,resources` |
+| 3D 原型和深度创作 | `editor,advanced_editor,deep_authoring,effects,project,scenes,nodes,animation,resources` |
 | 运行时测试和调试 | `runtime,performance,diagnostics` |
 | 全部能力 | `all` |
 
-`editor`、`ui`、`effects`、`advanced_editor` 需要 Editor Bridge。Runtime 的远程控制也需要插件；`run_project`、输出读取、无头输入模拟和自动化测试无需插件即可使用。
+`editor`、`ui`、`effects`、`advanced_editor`、`deep_authoring` 需要 Editor Bridge。Runtime 的远程控制也需要插件；`run_project`、输出读取、无头输入模拟和自动化测试无需插件即可使用。
 
 ## 常见工作流
 
@@ -212,7 +262,7 @@ Windows 可以使用安装助手复制插件并生成配置：
 
 ## 当前边界
 
-Godot MCP Toolkit 优先提供稳定、可验证的语义操作，而不是像素级复刻每一个 Godot Editor 面板。网格和骨骼编辑、高级动画图、Navigation Mesh 烘焙、详细物理调试可视化、Audio Bus 效果链分析、导出预设执行，以及高级 TileMap/Theme 子编辑仍属于路线图内容。详见 [docs/roadmap.md](docs/roadmap.md)。
+Godot MCP Toolkit 优先提供稳定、可验证的语义操作，而不是像素级复刻每一个 Godot Editor 面板。当前已支持 ArrayMesh 表面编辑、基础状态机图、Bezier 曲线、Theme 子项和 TileSet 图集/Terrain 操作；骨骼蒙皮、导入网格编辑、复杂 Blend 图、Navigation Mesh 烘焙、详细物理调试可视化、Audio Bus 效果链、导出预设，以及高级 TileSet/Theme 继承仍属于路线图内容。详见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 开发
 

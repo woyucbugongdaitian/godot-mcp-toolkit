@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added 2D/3D runtime point and primitive-shape overlap queries plus navigation path queries.
+- Added deep authoring tools for AnimationTree state machines, Bezier curves, timeline settings, Theme subresources, generic resource assignment, TileSet atlas/Terrain work, and editable ArrayMesh surfaces.
 
 ## 0.3.0
 

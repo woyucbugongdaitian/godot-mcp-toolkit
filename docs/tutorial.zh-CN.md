@@ -100,7 +100,112 @@ Test-Path .\build\index.mjs
 
 返回 `True` 即可。MCP 客户端应该启动 `build/index.mjs`，而不是直接启动 `server/index.mjs`；后者适合仓库内调试，前者是构建后的发布入口。
 
-### 3. Windows 安装助手
+### 3. 从 GitHub 下载源码与插件
+
+插件目前随仓库源码提供，不需要去 Godot AssetLib 另找插件包。GitHub 仓库地址是：
+
+- 仓库主页：<https://github.com/woyucbugongdaitian/godot-mcp-toolkit>
+- 插件源码目录：`godot/addons/godot_mcp_pro`
+
+有两种下载方式，任选一种即可。
+
+#### 方式 A：使用 Git 克隆（推荐）
+
+打开 **CMD（命令提示符）**，逐行执行：
+
+```bat
+cd /d E:\Tools
+git clone https://github.com/woyucbugongdaitian/godot-mcp-toolkit.git
+dir E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro
+```
+
+如果看到 `plugin.cfg`、`plugin.gd` 和 `runtime_agent.gd`，说明插件源码已经下载到本机。
+
+#### 方式 B：从 GitHub 下载 ZIP
+
+1. 打开上面的 GitHub 仓库主页。
+2. 点击绿色 **Code** 按钮。
+3. 点击 **Download ZIP**。
+4. 将下载的 ZIP 解压到一个固定位置，例如 `E:\Tools\godot-mcp-toolkit`。
+5. 确认最终路径类似下面这样：
+
+```text
+E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro\plugin.cfg
+```
+
+不要把 ZIP 内层的 `godot` 目录直接当成 Godot 项目；这里的 `godot` 是 Toolkit 仓库中的源码目录。
+
+### 4. 把插件复制到目标 Godot 项目
+
+假设：
+
+- Toolkit 源码目录是 `E:\Tools\godot-mcp-toolkit`；
+- 你的 Godot 项目目录是 `E:\Games\MyGodotProject`；
+- `E:\Games\MyGodotProject\project.godot` 确实存在。
+
+插件在目标项目中的**唯一正确位置**是：
+
+```text
+E:\Games\MyGodotProject\addons\godot_mcp_pro\plugin.cfg
+E:\Games\MyGodotProject\addons\godot_mcp_pro\plugin.gd
+E:\Games\MyGodotProject\addons\godot_mcp_pro\runtime_agent.gd
+```
+
+#### 用 CMD 手动复制
+
+关闭 Godot 后，打开 **CMD**，逐行执行：
+
+```bat
+cd /d E:\Tools\godot-mcp-toolkit
+if not exist "E:\Games\MyGodotProject\addons" mkdir "E:\Games\MyGodotProject\addons"
+xcopy /E /I /Y "E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro" "E:\Games\MyGodotProject\addons\godot_mcp_pro"
+dir "E:\Games\MyGodotProject\addons\godot_mcp_pro\plugin.cfg"
+```
+
+最后一条命令能列出 `plugin.cfg` 才算复制成功。
+
+#### 用 PowerShell 手动复制
+
+如果你使用 PowerShell，执行：
+
+```powershell
+$toolkit = "E:\Tools\godot-mcp-toolkit"
+$project = "E:\Games\MyGodotProject"
+New-Item -ItemType Directory -Force "$project\addons" | Out-Null
+Copy-Item "$toolkit\godot\addons\godot_mcp_pro" "$project\addons\godot_mcp_pro" -Recurse -Force
+Test-Path "$project\addons\godot_mcp_pro\plugin.cfg"
+```
+
+返回 `True` 才表示插件路径正确。
+
+> [!IMPORTANT]
+> 不要复制成 `E:\Games\MyGodotProject\godot\addons\godot_mcp_pro`，也不要复制成 `E:\Games\MyGodotProject\addons\godot\addons\godot_mcp_pro`。Godot 只会从目标项目根目录下的 `addons\godot_mcp_pro\plugin.cfg` 识别这个插件。
+
+### 5. 在 Godot 里启用插件
+
+复制完成后，按下面的界面步骤操作：
+
+1. 启动 Godot Project Manager。
+2. 点击 **Import**，选择 `E:\Games\MyGodotProject\project.godot`，打开目标项目。
+3. 在顶部菜单点击 **Project → Project Settings**。
+4. 在 Project Settings 窗口顶部切换到 **Plugins** 标签页。
+5. 找到名称为 **Godot MCP Toolkit** 的插件。
+6. 将右侧的 **Enabled** 开关打开。
+7. 关闭 Project Settings；如果 Godot 提示重载项目，点击 **Reload Current Project**。
+8. 重新打开场景，确认没有插件加载错误。
+
+插件显示名称来自 `addons/godot_mcp_pro/plugin.cfg` 中的 `name="Godot MCP Toolkit"`。
+
+如果 Plugins 页面看不到它，按下面顺序检查：
+
+1. 确认文件存在：`E:\Games\MyGodotProject\addons\godot_mcp_pro\plugin.cfg`；
+2. 确认 `plugin.cfg` 没有被放在多余的嵌套目录中；
+3. 关闭并重新打开 Godot 项目；
+4. 查看 Godot 底部 **Output** 面板中的插件解析错误；
+5. 确认目标项目是 Godot 4.x，而不是 Godot 3.x。
+
+不需要手动把 `GodotMcpRuntimeAgent` 添加到 Autoload。插件启用后会自动注册它；重复添加同名 Autoload 可能导致运行时冲突。
+### 6. Windows 安装助手
 
 如果你在 Windows 上使用一个固定的 Godot 项目，可以让安装助手复制插件并生成配置：
 
@@ -462,7 +567,67 @@ capture_editor_screenshot()
 
 如果是修改当前场景，先调用 `get_editor_scene_tree` 和 `get_editor_selection`，确认上下文后再改属性。
 
-### 4. 正确结束编辑器会话
+### 4. 深度创作：动画、资源与 ArrayMesh
+
+这组能力属于 `deep_authoring`。使用前请确保 MCP 配置至少包含：
+
+```text
+GODOT_MCP_TOOL_GROUPS=editor,advanced_editor,deep_authoring
+```
+
+#### AnimationTree 状态机与曲线
+
+先给 `AnimationTree` 创建状态机，再加入对应 `AnimationPlayer` 动画名称的状态和过渡：
+
+```text
+edit_animation_state_machine(animationTreePath = "AnimationTree", action = "create")
+edit_animation_state_machine(animationTreePath = "AnimationTree", action = "add_state", stateName = "Idle", animationPath = "Idle", position = { x: 0, y: 0 })
+edit_animation_state_machine(animationTreePath = "AnimationTree", action = "add_state", stateName = "Run", animationPath = "Run", position = { x: 280, y: 0 })
+edit_animation_state_machine(animationTreePath = "AnimationTree", action = "add_transition", fromState = "Idle", toState = "Run", xfadeTime = 0.15)
+```
+
+Bezier 曲线使用目标节点和属性路径创建。例如让 `Player:modulate:a` 按自定义手柄变化：
+
+```text
+edit_animation_curve(animationPlayerPath = "AnimationPlayer", animationName = "Fade", action = "set_key", targetNodePath = "Player", property = "modulate:a", time = 0.25, value = 0.8, inHandle = { x: -0.1, y: 0 }, outHandle = { x: 0.1, y: 0 })
+configure_animation_timeline(animationPlayerPath = "AnimationPlayer", animationName = "Fade", length = 0.5, loopMode = "none")
+```
+
+#### Theme、资源和 TileSet
+
+`edit_theme_resource` 会直接保存指定的 `.tres` Theme。它适合颜色、常量、字体大小和 `StyleBoxFlat` 子项：
+
+```text
+edit_theme_resource(resourcePath = "res://ui/game_theme.tres", action = "set_item", itemType = "stylebox", controlType = "Panel", name = "panel", style = { bgColor = "#182033e6", cornerRadius = 16, borderWidth = 2, borderColor = "#78a6ff" })
+```
+
+资源指派不要依赖编辑器资源选择器点击，可使用：
+
+```text
+assign_editor_resource(nodePath = "Environment", property = "environment", resourcePath = "res://visuals/night_environment.tres")
+```
+
+TileSet 图集和地形绘制需要目标 TileMap 已在打开场景中：
+
+```text
+edit_tileset_atlas(tileMapPath = "World/TileMapLayer", action = "create_source", texturePath = "res://art/tiles.png", regionSize = { x: 16, y: 16 })
+edit_tileset_atlas(tileMapPath = "World/TileMapLayer", action = "create_tile", sourceId = 0, tileCoordinates = { x: 0, y: 0 })
+paint_tilemap_terrain(tileMapPath = "World/TileMapLayer", terrainSet = 0, terrain = 0, cells = [{ x: 4, y: 6 }, { x: 5, y: 6 }])
+```
+
+图集创建不会替你定义 TileSet 的 Terrain Set、Peering Bits 或替代瓦片；先在 Godot 中或通过后续工具定义这些资源，再调用 Terrain 绘制。
+
+#### 可编辑 ArrayMesh
+
+`edit_array_mesh` 只编辑 Toolkit 创建的 `ArrayMesh`，避免破坏导入网格。创建一个最小三角面：
+
+```text
+edit_array_mesh(action = "create", parentPath = "World", nodeName = "GroundMarker", primitive = "triangles", vertices = [{ x: -1, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }], indices = [0, 1, 2])
+```
+
+之后用 `action = "inspect"` 读取表面信息；用 `action = "update_surface"` 替换 `vertices`、`normals`、`uvs` 或 `indices`。表面更新会通过 Godot UndoRedo 重建受影响的 ArrayMesh 表面，修改前仍应先检查顶点数量和索引范围。
+
+### 5. 正确结束编辑器会话
 
 切换项目或者不再需要实时编辑时调用：
 

@@ -49,11 +49,12 @@ flowchart LR
 | **Project intelligence** | `get_project_info`, file search, resources, UIDs, project context | Understand an unfamiliar project before editing it |
 | **Scene authoring** | Create, inspect, duplicate, save, add, move, rename, remove, and configure nodes | Make reproducible scene changes from structured requests |
 | **2D and UI** | Sprites, Control nodes, cameras, lights, UI screens, layout, Theme overrides | Build menus, HUDs, dialogs, and 2D prototypes |
-| **3D authoring** | Primitive meshes, cameras, lights, transforms, StandardMaterial, stylized rendering | Block out and light a playable 3D scene |
-| **Gameplay systems** | Animation tracks, AnimationTree state, navigation nodes, agents, collision shapes, audio | Set up common systems without hiding changes in generated files |
+| **3D authoring** | Primitive and editable ArrayMesh surfaces, cameras, lights, transforms, StandardMaterial, stylized rendering | Block out, inspect, and revise a playable 3D scene |
+| **Gameplay systems** | Animation tracks, Bezier curves, timeline settings, AnimationTree state machines, navigation nodes, agents, collision shapes, audio | Set up common systems without hiding changes in generated files |
 | **Runtime verification** | Remote tree/properties, input injection, screenshots, ray/point/shape overlap queries, navigation paths, watches, logs, metrics | Reproduce issues and verify behavior with evidence |
 
 See the complete operation inventory in [docs/capabilities.md](docs/capabilities.md).
+> **Tool inventory:** 43 headless tools by default, or 149 unique built-in tools when the Editor Bridge is enabled with `GODOT_MCP_TOOL_GROUPS=all`. The detailed inventory is organized into 23 reader-friendly categories in [docs/capabilities.md](docs/capabilities.md).
 
 ## Quick Start
 
@@ -141,11 +142,11 @@ Set `GODOT_MCP_TOOL_GROUPS` to a comma-separated list so the MCP client sees onl
 | --- | --- |
 | Project repair or code generation | `project,scenes,nodes,scripts,resources,performance,ai,diagnostics` |
 | 2D level and UI work | `editor,ui,effects,project,scenes,nodes,scripts,visuals,tilemap` |
-| 3D blockout and game systems | `editor,advanced_editor,effects,project,scenes,nodes,animation,resources` |
+| 3D blockout and deep authoring | `editor,advanced_editor,deep_authoring,effects,project,scenes,nodes,animation,resources` |
 | Runtime test and debugging | `runtime,performance,diagnostics` |
 | Full workstation setup | `all` |
 
-The `editor`, `ui`, `effects`, and `advanced_editor` groups require the live Editor Bridge. Remote runtime tools also require the plugin; `run_project`, output capture, headless input simulation, and automation tests remain available without it.
+The `editor`, `ui`, `effects`, `advanced_editor`, and `deep_authoring` groups require the live Editor Bridge. Remote runtime tools also require the plugin; `run_project`, output capture, headless input simulation, and automation tests remain available without it.
 
 ## Workflow Recipes
 
@@ -212,7 +213,7 @@ The `editor`, `ui`, `effects`, and `advanced_editor` groups require the live Edi
 
 ## Current Boundaries
 
-Godot MCP Toolkit focuses on stable semantic operations rather than pixel-level imitation of every Editor panel. Mesh and skeleton editing, advanced animation graph authoring, Navigation mesh baking, detailed physics debug visualization, Audio Bus effect-chain analysis, export preset execution, and advanced TileMap/Theme sub-editing remain roadmap work. See [docs/roadmap.md](docs/roadmap.md) for the current boundary.
+Godot MCP Toolkit focuses on stable semantic operations rather than pixel-level imitation of every Editor panel. ArrayMesh surface edits, basic state-machine graphs, Bezier curves, Theme subresources, and TileSet atlas/Terrain operations are available; skeletons/skin, imported-mesh edits, complex blend graphs, Navigation mesh baking, detailed physics visualization, Audio Bus effect-chain analysis, export preset execution, and advanced TileSet/Theme inheritance remain roadmap work. See [docs/roadmap.md](docs/roadmap.md) for the current boundary.
 
 ## Development
 
