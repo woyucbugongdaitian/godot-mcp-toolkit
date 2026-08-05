@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [Parameter(Position = 0)] [string]$ProjectPath,
     [string]$GodotPath,
@@ -40,7 +40,7 @@ $settings = [ordered]@{
     projectPath = $ProjectPath
     godotBin = $GodotPath
     installedAt = (Get-Date).ToString("o")
-    packageVersion = "0.2.0"
+    packageVersion = "0.3.0"
 }
 $settings | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Root "settings.local.json") -Encoding utf8
 
