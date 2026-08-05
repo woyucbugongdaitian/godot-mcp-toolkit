@@ -54,7 +54,7 @@ flowchart LR
 | **Runtime verification** | Remote tree/properties, input injection, screenshots, ray/point/shape overlap queries, navigation paths, watches, logs, metrics | Reproduce issues and verify behavior with evidence |
 
 See the complete operation inventory in [docs/capabilities.md](docs/capabilities.md).
-> **Tool inventory:** 43 headless tools by default, or 149 unique built-in tools when the Editor Bridge is enabled with `GODOT_MCP_TOOL_GROUPS=all`. The detailed inventory is organized into 23 reader-friendly categories in [docs/capabilities.md](docs/capabilities.md).
+> **Tool inventory:** 45 headless tools by default, or 164 unique built-in tools when the Editor Bridge is enabled with `GODOT_MCP_TOOL_GROUPS=all`. The detailed inventory is organized into 23 reader-friendly categories in [docs/capabilities.md](docs/capabilities.md).
 
 ## Quick Start
 
@@ -162,11 +162,11 @@ Set `GODOT_MCP_TOOL_GROUPS` to a comma-separated list so the MCP client sees onl
 | --- | --- |
 | Project repair or code generation | `project,scenes,nodes,scripts,resources,performance,ai,diagnostics` |
 | 2D level and UI work | `editor,ui,effects,project,scenes,nodes,scripts,visuals,tilemap` |
-| 3D blockout and deep authoring | `editor,advanced_editor,deep_authoring,effects,project,scenes,nodes,animation,resources` |
-| Runtime test and debugging | `runtime,performance,diagnostics` |
+| 3D blockout and deep authoring | `editor,advanced_editor,deep_authoring,professional_workflows,effects,project,scenes,nodes,animation,resources` |
+| Runtime test and debugging | `runtime,runtime_diagnostics,performance,diagnostics` |
 | Full workstation setup | `all` |
 
-The `editor`, `ui`, `effects`, `advanced_editor`, and `deep_authoring` groups require the live Editor Bridge. Remote runtime tools also require the plugin; `run_project`, output capture, headless input simulation, and automation tests remain available without it.
+The `editor`, `ui`, `effects`, `advanced_editor`, `deep_authoring`, and `professional_workflows` groups require the live Editor Bridge. The `runtime_diagnostics` group requires the Runtime Agent. Remote runtime tools also require the plugin; `run_project`, output capture, headless input simulation, and automation tests remain available without it.
 
 ## Workflow Recipes
 
@@ -233,7 +233,7 @@ The `editor`, `ui`, `effects`, `advanced_editor`, and `deep_authoring` groups re
 
 ## Current Boundaries
 
-Godot MCP Toolkit focuses on stable semantic operations rather than pixel-level imitation of every Editor panel. ArrayMesh surface edits, basic state-machine graphs, Bezier curves, Theme subresources, and TileSet atlas/Terrain operations are available; skeletons/skin, imported-mesh edits, complex blend graphs, Navigation mesh baking, detailed physics visualization, Audio Bus effect-chain analysis, export preset execution, and advanced TileSet/Theme inheritance remain roadmap work. See [docs/roadmap.md](docs/roadmap.md) for the current boundary.
+Godot MCP Toolkit focuses on stable semantic operations rather than pixel-level imitation of every Editor panel. ArrayMesh plus Skeleton/Skin editing, BlendSpace foundations, NavigationMesh baking, runtime contacts and structured logs, Audio Bus effect chains/spectrum peaks, Theme fonts/icons/type variations, TileSet terrain/proxy authoring, and safe preset exports are available. Imported-mesh vertex editing, full viewport Gizmo gestures, visual-shader graph tooling, code refactoring/full debugger stacks, importer-setting authoring, Project Manager/Export Dock UI automation, and every editor panel remain outside the semantic API boundary. See [docs/roadmap.md](docs/roadmap.md) for the current boundary.
 
 ## Development
 

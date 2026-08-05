@@ -139,7 +139,7 @@ try {
 
   const listing = await firstClient.request("tools/list", {});
   const toolNames = new Set(listing.result.tools.map((tool) => tool.name));
-  for (const name of ["get_runtime_info", "get_runtime_binding", "release_runtime_binding", "pause_runtime", "resume_runtime", "inject_runtime_pointer", "configure_runtime_observability", "poll_runtime_observability", "query_runtime_physics_shape", "query_runtime_navigation_path"]) assert.equal(toolNames.has(name), true, name);
+  for (const name of ["get_runtime_info", "get_runtime_binding", "release_runtime_binding", "pause_runtime", "resume_runtime", "inject_runtime_pointer", "configure_runtime_observability", "poll_runtime_observability", "query_runtime_physics_shape", "query_runtime_navigation_path", "get_runtime_performance_snapshot", "get_runtime_body_contacts", "get_runtime_audio_analysis", "edit_runtime_audio_bus_effects"]) assert.equal(toolNames.has(name), true, name);
 
   const initialBinding = await firstClient.call("get_runtime_binding");
   assert.equal(initialBinding.value.bound, false);

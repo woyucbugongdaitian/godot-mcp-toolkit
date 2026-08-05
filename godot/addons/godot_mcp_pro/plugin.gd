@@ -3,7 +3,7 @@ extends EditorPlugin
 
 const STATE_PATH := "user://godot_mcp_pro_state.json"
 const CURRENT_STATE_VERSION := 3
-const PLUGIN_VERSION := "0.3.0"
+const PLUGIN_VERSION := "0.4.0"
 const MAX_LOG_ENTRIES := 1000
 const DEFAULT_PORT := 6505
 const BINDING_MODE := "one_to_one"
@@ -213,6 +213,8 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return open_editor_script(params)
 		"goto_editor_script_line":
 			return goto_editor_script_line(params)
+		"edit_editor_script":
+			return edit_editor_script(params)
 		"get_editor_breakpoints":
 			return ok_result(get_editor_breakpoints())
 		"save_editor_scripts":
@@ -255,20 +257,34 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return configure_animation_timeline(params)
 		"edit_theme_resource":
 			return edit_theme_resource(params)
+		"edit_editor_resource":
+			return edit_editor_resource(params)
 		"assign_editor_resource":
 			return assign_editor_resource(params)
 		"edit_tileset_atlas":
 			return edit_tileset_atlas(params)
+		"configure_tileset_terrain":
+			return configure_tileset_terrain(params)
+		"configure_tileset_proxy":
+			return configure_tileset_proxy(params)
 		"paint_tilemap_terrain":
 			return paint_tilemap_terrain(params)
 		"edit_array_mesh":
 			return edit_array_mesh(params)
+		"edit_skeleton_3d":
+			return edit_skeleton_3d(params)
+		"edit_skin_resource":
+			return edit_skin_resource(params)
 		"create_navigation_node":
 			return create_navigation_node(params)
 		"configure_navigation_agent":
 			return configure_navigation_agent(params)
 		"inspect_navigation":
 			return inspect_navigation(params)
+		"inspect_editor_imports":
+			return inspect_editor_imports(params)
+		"bake_navigation_region":
+			return bake_navigation_region(params)
 		"create_collision_shape":
 			return create_collision_shape(params)
 		"configure_physics_node":
@@ -281,6 +297,8 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return set_audio_bus_state(params)
 		"configure_editor_audio_player":
 			return configure_editor_audio_player(params)
+		"edit_editor_audio_bus_effects":
+			return edit_editor_audio_bus_effects(params)
 		"inspect_editor_audio_nodes":
 			return inspect_editor_audio_nodes(params)
 		"create_theme_resource":
@@ -901,6 +919,55 @@ func save_editor_scripts() -> Dictionary:
 func get_editor_debugger_state() -> Dictionary:
 	return {"available": false, "isPlaying": EditorInterface.is_playing_scene(), "playingScene": EditorInterface.get_playing_scene(), "message": "Godot exposes runtime debugger state through the runtime agent; editor debugger session APIs vary by engine build."}
 
+func get_current_code_editor() -> Object:
+	var script_editor = EditorInterface.get_script_editor()
+	if script_editor == null:
+		return null
+	var current_editor = script_editor.get_current_editor()
+	if current_editor == null:
+		return null
+	if current_editor.has_method("get_base_editor"):
+		var base_editor = current_editor.call("get_base_editor")
+		if base_editor != null:
+			return base_editor
+	return current_editor
+
+func edit_editor_script(params: Dictionary) -> Dictionary:
+	var action := String(params.get("action", "inspect"))
+	if action == "inspect":
+		return get_script_editor_state()
+	var code_editor := get_current_code_editor()
+	if code_editor == null:
+		return error_result("No editable Script Editor buffer is active")
+	if action == "set_caret":
+		if not code_editor.has_method("set_caret_line") or not code_editor.has_method("set_caret_column"):
+			return error_result("The active Script Editor buffer does not expose caret controls")
+		code_editor.callv(StringName("set_caret_line"), [maxi(int(params.get("line", 1)) - 1, 0)])
+		code_editor.callv(StringName("set_caret_column"), [maxi(int(params.get("column", 0)), 0)])
+	elif action == "set_selection":
+		if not code_editor.has_method("select"):
+			return error_result("The active Script Editor buffer does not expose selection controls")
+		code_editor.callv(StringName("select"), [maxi(int(params.get("fromLine", 1)) - 1, 0), maxi(int(params.get("fromColumn", 0)), 0), maxi(int(params.get("toLine", 1)) - 1, 0), maxi(int(params.get("toColumn", 0)), 0)])
+	elif action == "clear_selection":
+		if code_editor.has_method("deselect"):
+			code_editor.call("deselect")
+	elif action == "insert_text" or action == "replace_selection":
+		if not params.has("text") or not code_editor.has_method("insert_text_at_caret"):
+			return error_result("text and an insert-capable Script Editor buffer are required")
+		code_editor.callv(StringName("insert_text_at_caret"), [String(params.get("text", ""))])
+	elif action == "set_text":
+		if not params.has("text") or not code_editor.has_method("set_text"):
+			return error_result("text and a set_text-capable Script Editor buffer are required")
+		code_editor.callv(StringName("set_text"), [String(params.get("text", ""))])
+	elif action == "request_completion":
+		if not code_editor.has_method("request_code_completion"):
+			return error_result("The active Script Editor buffer does not expose completion requests")
+		code_editor.callv(StringName("request_code_completion"), [true])
+	else:
+		return error_result("Unsupported Script Editor action: %s" % action)
+	var state_result := get_script_editor_state()
+	return ok_result({"action": action, "state": state_result.get("result", {})})
+
 func create_2d_camera(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var parent := resolve_node(root, String(params.get("parentPath", ".")))
@@ -1314,6 +1381,99 @@ func edit_animation_state_machine(params: Dictionary) -> Dictionary:
 		undo.add_undo_method(state_machine, "remove_transition", StringName(from_state), StringName(to_state))
 		undo.commit_action()
 		return ok_result({"fromState": from_state, "toState": to_state, "added": true, "stateMachine": describe_animation_state_machine(state_machine)})
+	if action == "remove_state":
+		var state_name := String(params.get("stateName", "")).strip_edges()
+		if state_name.is_empty() or not state_machine.has_node(state_name):
+			return error_result("stateName must reference an existing animation state")
+		if state_name.to_lower() == "start" or state_name.to_lower() == "end":
+			return error_result("Start and End state-machine endpoints cannot be removed")
+		var state_node = state_machine.get_node(state_name)
+		var state_position := state_machine.get_node_position(state_name)
+		var connected_transitions := []
+		for transition_index in range(state_machine.get_transition_count()):
+			var transition_from := state_machine.get_transition_from(transition_index)
+			var transition_to := state_machine.get_transition_to(transition_index)
+			if String(transition_from) == state_name or String(transition_to) == state_name:
+				connected_transitions.append({"from": transition_from, "to": transition_to, "transition": state_machine.get_transition(transition_index)})
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Remove Animation State")
+		undo.add_do_method(state_machine, "remove_node", StringName(state_name))
+		for connected in connected_transitions:
+			undo.add_undo_method(state_machine, "add_transition", connected.from, connected.to, connected.transition)
+		undo.add_undo_method(state_machine, "add_node", StringName(state_name), state_node, state_position)
+		undo.commit_action()
+		return ok_result({"stateName": state_name, "removed": true, "stateMachine": describe_animation_state_machine(state_machine)})
+	if action == "set_state_position":
+		var state_name := String(params.get("stateName", "")).strip_edges()
+		if state_name.is_empty() or not state_machine.has_node(state_name):
+			return error_result("stateName must reference an existing animation state")
+		var next_position := vector2_from_params(params.get("position", {}), state_machine.get_node_position(state_name))
+		var previous_position := state_machine.get_node_position(state_name)
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Position Animation State")
+		undo.add_do_method(state_machine, "set_node_position", StringName(state_name), next_position)
+		undo.add_undo_method(state_machine, "set_node_position", StringName(state_name), previous_position)
+		undo.commit_action()
+		return ok_result({"stateName": state_name, "position": serialize_value(next_position), "updated": true})
+	if action == "remove_transition":
+		var from_state := String(params.get("fromState", "")).strip_edges()
+		var to_state := String(params.get("toState", "")).strip_edges()
+		if not state_machine.has_transition(from_state, to_state):
+			return error_result("Animation transition does not exist: %s -> %s" % [from_state, to_state])
+		var transition = state_machine.get_transition(state_machine.find_transition(from_state, to_state))
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Remove Animation Transition")
+		undo.add_do_method(state_machine, "remove_transition", StringName(from_state), StringName(to_state))
+		undo.add_undo_method(state_machine, "add_transition", StringName(from_state), StringName(to_state), transition)
+		undo.commit_action()
+		return ok_result({"fromState": from_state, "toState": to_state, "removed": true})
+	if action == "configure_transition":
+		var from_state := String(params.get("fromState", "")).strip_edges()
+		var to_state := String(params.get("toState", "")).strip_edges()
+		if not state_machine.has_transition(from_state, to_state):
+			return error_result("Animation transition does not exist: %s -> %s" % [from_state, to_state])
+		var transition = state_machine.get_transition(state_machine.find_transition(from_state, to_state))
+		var values: Dictionary = params.get("properties", {}).duplicate() if params.get("properties", {}) is Dictionary else {}
+		if params.has("xfadeTime"): values["xfade_time"] = float(params.get("xfadeTime"))
+		if params.has("reset"): values["reset"] = bool(params.get("reset"))
+		if params.has("priority"): values["priority"] = int(params.get("priority"))
+		return ok_result(apply_properties_undo(transition, values, "Godot MCP Configure Animation Transition"))
+	if action == "add_blend_space":
+		var state_name := String(params.get("stateName", "")).strip_edges()
+		if state_name.is_empty() or state_machine.has_node(state_name):
+			return error_result("stateName must be unique when adding a BlendSpace")
+		var blend_space = AnimationNodeBlendSpace1D.new() if String(params.get("blendSpaceDimension", "1d")) == "1d" else AnimationNodeBlendSpace2D.new()
+		var position := vector2_from_params(params.get("position", {}), Vector2.ZERO)
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Add Animation BlendSpace")
+		undo.add_do_method(state_machine, "add_node", StringName(state_name), blend_space, position)
+		undo.add_undo_method(state_machine, "remove_node", StringName(state_name))
+		undo.commit_action()
+		return ok_result({"stateName": state_name, "dimension": String(params.get("blendSpaceDimension", "1d")), "added": true})
+	if action == "add_blend_point":
+		var blend_state := String(params.get("blendState", "")).strip_edges()
+		var blend_space = state_machine.get_node(blend_state) if state_machine.has_node(blend_state) else null
+		if blend_space == null or not (blend_space is AnimationNodeBlendSpace1D or blend_space is AnimationNodeBlendSpace2D):
+			return error_result("blendState must reference an AnimationNodeBlendSpace1D or AnimationNodeBlendSpace2D")
+		var animation_path := String(params.get("animationPath", "")).strip_edges()
+		if animation_path.is_empty():
+			return error_result("animationPath is required when adding a BlendSpace point")
+		var animation_node := AnimationNodeAnimation.new()
+		animation_node.animation = StringName(animation_path)
+		var blend_position = float(params.get("blendPosition", 0.0)) if blend_space is AnimationNodeBlendSpace1D else vector2_from_params(params.get("blendPosition", {}), Vector2.ZERO)
+		var point_index := int(blend_space.call("get_blend_point_count"))
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Add Animation BlendSpace Point")
+		undo.add_do_method(blend_space, "add_blend_point", animation_node, blend_position, -1)
+		undo.add_undo_method(blend_space, "remove_blend_point", point_index)
+		undo.commit_action()
+		return ok_result({"blendState": blend_state, "pointIndex": point_index, "animationPath": animation_path, "added": true})
+	if action == "configure_blend_space":
+		var blend_state := String(params.get("blendState", "")).strip_edges()
+		var blend_space = state_machine.get_node(blend_state) if state_machine.has_node(blend_state) else null
+		if blend_space == null or not (blend_space is AnimationNodeBlendSpace1D or blend_space is AnimationNodeBlendSpace2D):
+			return error_result("blendState must reference an AnimationNodeBlendSpace1D or AnimationNodeBlendSpace2D")
+		return ok_result(apply_properties_undo(blend_space, params.get("properties", {}), "Godot MCP Configure Animation BlendSpace"))
 	return error_result("Unsupported animation state machine action: %s" % action)
 
 func get_animation_state_machine(tree: AnimationTree) -> AnimationNodeStateMachine:
@@ -1504,6 +1664,91 @@ func replace_array_mesh_surface(mesh: ArrayMesh, target_surface: int, replacemen
 		mesh.add_surface_from_arrays(snapshot.primitive, snapshot.arrays)
 		if snapshot.material != null:
 			mesh.surface_set_material(surface, snapshot.material)
+func transform3d_from_params(value, fallback := Transform3D.IDENTITY) -> Transform3D:
+	if not value is Dictionary:
+		return fallback
+	var origin := vector3_from_params(value.get("origin", {}), fallback.origin)
+	var rotation_degrees := vector3_from_params(value.get("rotationDegrees", {}), Vector3.ZERO)
+	var basis := Basis.from_euler(Vector3(deg_to_rad(rotation_degrees.x), deg_to_rad(rotation_degrees.y), deg_to_rad(rotation_degrees.z)))
+	return Transform3D(basis, origin)
+
+func describe_skeleton_3d(skeleton: Skeleton3D) -> Dictionary:
+	var bones := []
+	for bone_index in range(skeleton.get_bone_count()):
+		bones.append({"index": bone_index, "name": skeleton.get_bone_name(bone_index), "parent": skeleton.get_bone_parent(bone_index), "rest": serialize_value(skeleton.get_bone_rest(bone_index))})
+	return {"nodePath": String(skeleton.get_path()), "boneCount": skeleton.get_bone_count(), "bones": bones}
+
+func edit_skeleton_3d(params: Dictionary) -> Dictionary:
+	var action := String(params.get("action", ""))
+	var root := EditorInterface.get_edited_scene_root()
+	if action == "create":
+		var parent := resolve_node(root, String(params.get("parentPath", ".")))
+		if parent == null:
+			return error_result("Skeleton3D parent node not found")
+		var skeleton := Skeleton3D.new()
+		skeleton.name = String(params.get("nodeName", "McpSkeleton3D"))
+		var created := add_node_undo(parent, skeleton, root, "Godot MCP Create Skeleton3D")
+		created["nodePath"] = String(skeleton.get_path())
+		return ok_result(created)
+	var skeleton := resolve_node(root, String(params.get("nodePath", "")))
+	if skeleton == null or not skeleton is Skeleton3D:
+		return error_result("Skeleton3D not found")
+	if action == "inspect":
+		return ok_result(describe_skeleton_3d(skeleton))
+	if action == "add_bone":
+		var bone_name := String(params.get("boneName", "")).strip_edges()
+		if bone_name.is_empty() or skeleton.find_bone(bone_name) >= 0:
+			return error_result("boneName must be unique and non-empty")
+		skeleton.add_bone(bone_name)
+		var bone_index: int = skeleton.get_bone_count() - 1
+		if params.has("parentBone"):
+			skeleton.set_bone_parent(bone_index, int(params.get("parentBone", -1)))
+		if params.has("restTransform"):
+			skeleton.set_bone_rest(bone_index, transform3d_from_params(params.get("restTransform", {})))
+		return ok_result({"nodePath": String(skeleton.get_path()), "boneIndex": bone_index, "boneName": bone_name, "updated": true, "undoable": false})
+	var bone_index := int(params.get("boneIndex", -1))
+	if bone_index < 0 or bone_index >= skeleton.get_bone_count():
+		return error_result("boneIndex is outside this Skeleton3D")
+	if action == "set_bone_parent":
+		skeleton.set_bone_parent(bone_index, int(params.get("parentBone", -1)))
+	elif action == "set_bone_rest":
+		skeleton.set_bone_rest(bone_index, transform3d_from_params(params.get("restTransform", {}), skeleton.get_bone_rest(bone_index)))
+	else:
+		return error_result("Unsupported Skeleton3D action: %s" % action)
+	return ok_result({"nodePath": String(skeleton.get_path()), "boneIndex": bone_index, "updated": true, "undoable": false})
+
+func describe_skin_resource(skin: Skin, resource_path: String) -> Dictionary:
+	var binds := []
+	for bind_index in range(skin.get_bind_count()):
+		binds.append({"index": bind_index, "bone": skin.get_bind_bone(bind_index), "pose": serialize_value(skin.get_bind_pose(bind_index))})
+	return {"resourcePath": resource_path, "bindCount": skin.get_bind_count(), "binds": binds}
+
+func edit_skin_resource(params: Dictionary) -> Dictionary:
+	var action := String(params.get("action", ""))
+	var resource_path := String(params.get("resourcePath", ""))
+	if not resource_path.begins_with("res://"):
+		return error_result("resourcePath must be a res:// path")
+	if action == "create":
+		var skin := Skin.new()
+		var save_error := ResourceSaver.save(skin, resource_path)
+		if save_error != OK:
+			return error_result("Cannot save Skin resource: %s" % save_error)
+		return ok_result({"resourcePath": resource_path, "created": true})
+	var skin = ResourceLoader.load(resource_path)
+	if skin == null or not skin is Skin:
+		return error_result("Skin resource not found: %s" % resource_path)
+	if action == "inspect":
+		return ok_result(describe_skin_resource(skin, resource_path))
+	if action != "add_bind":
+		return error_result("Unsupported Skin action: %s" % action)
+	if not params.has("bone"):
+		return error_result("bone is required when adding a Skin bind")
+	skin.add_bind(int(params.get("bone")), transform3d_from_params(params.get("bindPose", {})))
+	var save_error := ResourceSaver.save(skin, resource_path)
+	if save_error != OK:
+		return error_result("Cannot save Skin resource: %s" % save_error)
+	return ok_result({"resourcePath": resource_path, "bindIndex": skin.get_bind_count() - 1, "updated": true})
+
 func create_navigation_node(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var parent := resolve_node(root, String(params.get("parentPath", ".")))
@@ -1543,6 +1788,35 @@ func inspect_navigation(params: Dictionary) -> Dictionary:
 	collect_nodes_by_prefix(node, result, ["Navigation"])
 	return ok_result({"rootPath": String(node.get_path()), "nodes": result})
 
+func inspect_editor_imports(params: Dictionary) -> Dictionary:
+	var filesystem = EditorInterface.get_resource_filesystem()
+	var results := []
+	for raw_path in params.get("paths", []):
+		var resource_path := String(raw_path)
+		if not resource_path.begins_with("res://"):
+			results.append({"path": resource_path, "valid": false, "error": "Path must begin with res://"})
+			continue
+		var item := {"path": resource_path, "exists": ResourceLoader.exists(resource_path), "type": "", "importValid": null}
+		if filesystem.has_method("get_file_type"):
+			item["type"] = String(filesystem.callv(StringName("get_file_type"), [resource_path]))
+		if filesystem.has_method("get_file_import_is_valid"):
+			item["importValid"] = bool(filesystem.callv(StringName("get_file_import_is_valid"), [resource_path]))
+		results.append(item)
+	return ok_result({"imports": results})
+
+func bake_navigation_region(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var node := resolve_node(root, String(params.get("nodePath", "")))
+	if node == null or not node is NavigationRegion3D:
+		return error_result("NavigationRegion3D not found")
+	if node.navigation_mesh == null:
+		var navigation_mesh := NavigationMesh.new()
+		apply_properties_undo(node, {"navigation_mesh": navigation_mesh}, "Godot MCP Create Navigation Mesh")
+	if not node.has_method("bake_navigation_mesh"):
+		return error_result("This Godot build does not expose NavigationRegion3D baking")
+	var on_thread := bool(params.get("onThread", true))
+	node.callv(StringName("bake_navigation_mesh"), [on_thread])
+	return ok_result({"nodePath": String(node.get_path()), "onThread": on_thread, "started": true, "navigationMesh": serialize_value(node.navigation_mesh)})
 func create_collision_shape(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var parent := resolve_node(root, String(params.get("parentPath", ".")))
@@ -1631,6 +1905,64 @@ func inspect_editor_audio_nodes(params: Dictionary) -> Dictionary:
 	collect_nodes_by_prefix(node, result, ["AudioStreamPlayer"])
 	return ok_result({"rootPath": String(node.get_path()), "nodes": result})
 
+func describe_audio_bus_effects(bus_index: int) -> Dictionary:
+	var effects := []
+	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
+		var effect = AudioServer.get_bus_effect(bus_index, effect_index)
+		effects.append({"index": effect_index, "type": effect.get_class() if effect else "", "resourcePath": effect.resource_path if effect is Resource else ""})
+	return {"index": bus_index, "name": AudioServer.get_bus_name(bus_index), "effects": effects}
+
+func instantiate_audio_effect(effect_type: String):
+	if not effect_type.begins_with("AudioEffect") or not ClassDB.class_exists(effect_type):
+		return null
+	var effect = ClassDB.instantiate(effect_type)
+	if effect == null or not effect is AudioEffect:
+		return null
+	return effect
+
+func edit_editor_audio_bus_effects(params: Dictionary) -> Dictionary:
+	var bus_index := AudioServer.get_bus_index(String(params.get("bus", "Master")))
+	if bus_index < 0:
+		return error_result("Audio bus not found")
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result(describe_audio_bus_effects(bus_index))
+	if action == "add":
+		var effect = instantiate_audio_effect(String(params.get("effectType", "")))
+		if effect == null:
+			return error_result("effectType must name a built-in AudioEffect class")
+		var values = params.get("properties", {})
+		if values is Dictionary:
+			for key in values.keys():
+				var property_name := String(key)
+				if has_property(effect, property_name):
+					effect.set(property_name, decode_value(values[key]))
+		var insertion_index := clampi(int(params.get("index", -1)), -1, AudioServer.get_bus_effect_count(bus_index))
+		var resolved_index := AudioServer.get_bus_effect_count(bus_index) if insertion_index < 0 else insertion_index
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Add Audio Bus Effect")
+		undo.add_do_method(AudioServer, "add_bus_effect", bus_index, effect, insertion_index)
+		undo.add_undo_method(AudioServer, "remove_bus_effect", bus_index, resolved_index)
+		undo.commit_action()
+		return ok_result({"bus": AudioServer.get_bus_name(bus_index), "effectIndex": resolved_index, "effectType": effect.get_class(), "added": true})
+	var effect_index := int(params.get("effectIndex", -1))
+	if effect_index < 0 or effect_index >= AudioServer.get_bus_effect_count(bus_index):
+		return error_result("effectIndex is outside this AudioServer bus")
+	var current_effect = AudioServer.get_bus_effect(bus_index, effect_index)
+	if action == "remove":
+		var undo := EditorInterface.get_editor_undo_redo()
+		undo.create_action("Godot MCP Remove Audio Bus Effect")
+		undo.add_do_method(AudioServer, "remove_bus_effect", bus_index, effect_index)
+		undo.add_undo_method(AudioServer, "add_bus_effect", bus_index, current_effect, effect_index)
+		undo.commit_action()
+		return ok_result({"bus": AudioServer.get_bus_name(bus_index), "effectIndex": effect_index, "removed": true})
+	if action == "configure":
+		var updated := apply_properties_undo(current_effect, params.get("properties", {}), "Godot MCP Configure Audio Bus Effect")
+		updated["bus"] = AudioServer.get_bus_name(bus_index)
+		updated["effectIndex"] = effect_index
+		updated["effectType"] = current_effect.get_class()
+		return ok_result(updated)
+	return error_result("Unsupported AudioServer effect action: %s" % action)
 func create_theme_resource(params: Dictionary) -> Dictionary:
 	var save_path := String(params.get("savePath", ""))
 	if not save_path.begins_with("res://"):
@@ -1652,37 +1984,104 @@ func edit_theme_resource(params: Dictionary) -> Dictionary:
 	var action := String(params.get("action", ""))
 	if action == "inspect":
 		return ok_result(describe_theme_resource(theme, resource_path))
-	if action != "set_item":
-		return error_result("Unsupported Theme action: %s" % action)
-	var item_type := String(params.get("itemType", ""))
 	var control_type := String(params.get("controlType", "Control")).strip_edges()
-	var item_name := String(params.get("name", "")).strip_edges()
-	if control_type.is_empty() or item_name.is_empty():
-		return error_result("controlType and name are required when setting a Theme item")
-	match item_type:
-		"color":
-			theme.set_color(item_name, control_type, parse_color(params.get("value", "#ffffff")))
-		"constant":
-			theme.set_constant(item_name, control_type, int(params.get("value", 0)))
-		"font_size":
-			theme.set_font_size(item_name, control_type, int(params.get("value", theme.default_font_size)))
-		"stylebox":
-			var stylebox := make_stylebox(params.get("style", {}))
-			if stylebox == null:
-				return error_result("style must describe a StyleBoxFlat")
-			theme.set_stylebox(item_name, control_type, stylebox)
-		_:
-			return error_result("itemType must be color, constant, font_size, or stylebox")
+	if control_type.is_empty():
+		return error_result("controlType is required when editing a Theme")
+	if action == "set_type_variation":
+		var base_type := String(params.get("baseType", "")).strip_edges()
+		if base_type.is_empty():
+			return error_result("baseType is required when setting a Theme type variation")
+		theme.set_type_variation(control_type, base_type)
+	elif action == "clear_item":
+		var item_type := String(params.get("itemType", ""))
+		var item_name := String(params.get("name", "")).strip_edges()
+		if item_name.is_empty() or item_type.is_empty():
+			return error_result("itemType and name are required when clearing a Theme item")
+		var clear_method := "clear_%s" % item_type
+		if not theme.has_method(clear_method):
+			return error_result("itemType must be color, constant, font_size, font, icon, or stylebox")
+		theme.callv(StringName(clear_method), [item_name, control_type])
+	elif action == "set_item":
+		var item_type := String(params.get("itemType", ""))
+		var item_name := String(params.get("name", "")).strip_edges()
+		if item_name.is_empty() or item_type.is_empty():
+			return error_result("itemType and name are required when setting a Theme item")
+		match item_type:
+			"color":
+				theme.set_color(item_name, control_type, parse_color(params.get("value", "#ffffff")))
+			"constant":
+				theme.set_constant(item_name, control_type, int(params.get("value", 0)))
+			"font_size":
+				theme.set_font_size(item_name, control_type, int(params.get("value", theme.default_font_size)))
+			"font":
+				var font = ResourceLoader.load(String(params.get("resourceValuePath", "")))
+				if font == null or not font is Font:
+					return error_result("resourceValuePath must load a Font resource")
+				theme.set_font(item_name, control_type, font)
+			"icon":
+				var icon = ResourceLoader.load(String(params.get("resourceValuePath", "")))
+				if icon == null or not icon is Texture2D:
+					return error_result("resourceValuePath must load a Texture2D resource")
+				theme.set_icon(item_name, control_type, icon)
+			"stylebox":
+				var stylebox := make_stylebox(params.get("style", {}))
+				if stylebox == null:
+					return error_result("style must describe a StyleBoxFlat")
+				theme.set_stylebox(item_name, control_type, stylebox)
+			_:
+				return error_result("itemType must be color, constant, font_size, font, icon, or stylebox")
+	else:
+		return error_result("Unsupported Theme action: %s" % action)
 	var save_error := ResourceSaver.save(theme, resource_path)
 	if save_error != OK:
 		return error_result("Cannot save Theme resource: %s" % save_error)
-	return ok_result({"resourcePath": resource_path, "itemType": item_type, "controlType": control_type, "name": item_name, "saved": true})
+	return ok_result({"resourcePath": resource_path, "action": action, "controlType": control_type, "saved": true})
 
 func describe_theme_resource(theme: Theme, resource_path: String) -> Dictionary:
 	var types := []
 	for type_name in theme.get_type_list():
 		types.append(String(type_name))
 	return {"resourcePath": resource_path, "defaultFontSize": theme.default_font_size, "types": types}
+
+func describe_editor_resource(resource: Resource, resource_path: String, max_properties: int) -> Dictionary:
+	var properties := []
+	for descriptor in resource.get_property_list():
+		if properties.size() >= max_properties:
+			break
+		if not (int(descriptor.get("usage", 0)) & PROPERTY_USAGE_STORAGE):
+			continue
+		var property_name := String(descriptor.get("name", ""))
+		if property_name.is_empty():
+			continue
+		properties.append({"name": property_name, "type": int(descriptor.get("type", -1)), "value": serialize_value(resource.get(property_name))})
+	return {"resourcePath": resource_path, "class": resource.get_class(), "properties": properties, "truncated": properties.size() >= max_properties}
+
+func edit_editor_resource(params: Dictionary) -> Dictionary:
+	var resource_path := String(params.get("resourcePath", ""))
+	var resource = ResourceLoader.load(resource_path)
+	if resource == null or not resource is Resource:
+		return error_result("Resource not found: %s" % resource_path)
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result(describe_editor_resource(resource, resource_path, clampi(int(params.get("maxProperties", 128)), 1, 512)))
+	if action == "duplicate":
+		var destination_path := String(params.get("destinationPath", ""))
+		if not destination_path.begins_with("res://"):
+			return error_result("destinationPath must be a res:// path")
+		var duplicated = resource.duplicate(true)
+		var duplicate_error := ResourceSaver.save(duplicated, destination_path)
+		if duplicate_error != OK:
+			return error_result("Cannot save duplicated Resource: %s" % duplicate_error)
+		return ok_result({"resourcePath": resource_path, "destinationPath": destination_path, "duplicated": true})
+	if action != "set_properties":
+		return error_result("Unsupported Resource action: %s" % action)
+	var result := apply_properties_undo(resource, params.get("properties", {}), "Godot MCP Edit Resource Properties")
+	var save_error := ResourceSaver.save(resource, resource_path)
+	if save_error != OK:
+		return error_result("Cannot save Resource: %s" % save_error)
+	result["resourcePath"] = resource_path
+	result["saved"] = true
+	return ok_result(result)
 
 func assign_editor_resource(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
@@ -1748,6 +2147,17 @@ func edit_tileset_atlas(params: Dictionary) -> Dictionary:
 		var tile_size := vector2i_from_params(params.get("tileSize", {}), Vector2i.ONE)
 		source.create_tile(coordinates, tile_size)
 		return ok_result({"tileMapPath": String(tile_map.get_path()), "sourceId": source_id, "coordinates": serialize_value(coordinates), "tileSize": serialize_value(tile_size), "created": true})
+	if action == "create_alternative":
+		var source_id := int(params.get("sourceId", -1))
+		var source = tile_set.get_source(source_id)
+		if source == null or not source is TileSetAtlasSource:
+			return error_result("TileSetAtlasSource not found: %s" % source_id)
+		var coordinates := vector2i_from_params(params.get("tileCoordinates", {}), Vector2i.ZERO)
+		if not source.has_tile(coordinates) or not source.has_method("create_alternative_tile"):
+			return error_result("Atlas tile or alternative-tile API is unavailable")
+		var alternative_id := int(params.get("alternativeId", 0))
+		var created_id = source.callv(StringName("create_alternative_tile"), [coordinates, alternative_id])
+		return ok_result({"tileMapPath": String(tile_map.get_path()), "sourceId": source_id, "coordinates": serialize_value(coordinates), "alternativeId": created_id, "created": true})
 	return error_result("Unsupported TileSet atlas action: %s" % action)
 
 func describe_tileset_atlas(tile_map: Node, tile_set: TileSet) -> Dictionary:
@@ -1765,6 +2175,101 @@ func describe_tileset_atlas(tile_map: Node, tile_set: TileSet) -> Dictionary:
 			item["tiles"] = tiles
 		sources.append(item)
 	return {"tileMapPath": String(tile_map.get_path()), "tileSize": serialize_value(tile_set.tile_size), "sourceCount": sources.size(), "sources": sources}
+
+func describe_tileset_terrain(tile_set: TileSet) -> Dictionary:
+	var terrain_sets := []
+	var set_count := int(tile_set.call("get_terrain_sets_count")) if tile_set.has_method("get_terrain_sets_count") else 0
+	for terrain_set in range(set_count):
+		var terrains := []
+		var terrain_count := int(tile_set.callv(StringName("get_terrains_count"), [terrain_set])) if tile_set.has_method("get_terrains_count") else 0
+		for terrain in range(terrain_count):
+			terrains.append({"index": terrain, "name": tile_set.callv(StringName("get_terrain_name"), [terrain_set, terrain]) if tile_set.has_method("get_terrain_name") else ""})
+		terrain_sets.append({"index": terrain_set, "mode": tile_set.callv(StringName("get_terrain_set_mode"), [terrain_set]) if tile_set.has_method("get_terrain_set_mode") else -1, "terrains": terrains})
+	return {"terrainSetCount": set_count, "terrainSets": terrain_sets}
+
+func configure_tileset_terrain(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var tile_map := resolve_tilemap_node(root, String(params.get("tileMapPath", "")))
+	if tile_map == null:
+		return error_result("TileMapLayer or TileMap not found")
+	var tile_set := ensure_tile_set(tile_map)
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result(describe_tileset_terrain(tile_set))
+	if action == "add_set":
+		if not tile_set.has_method("add_terrain_set"):
+			return error_result("This Godot build does not expose TileSet terrain-set authoring")
+		tile_set.callv(StringName("add_terrain_set"), [int(params.get("mode", 0))])
+		return ok_result({"terrainSet": int(tile_set.call("get_terrain_sets_count")) - 1, "created": true})
+	var terrain_set := int(params.get("terrainSet", -1))
+	if terrain_set < 0:
+		return error_result("terrainSet is required")
+	if action == "add_terrain":
+		tile_set.callv(StringName("add_terrain"), [terrain_set])
+		return ok_result({"terrainSet": terrain_set, "terrain": int(tile_set.callv(StringName("get_terrains_count"), [terrain_set])) - 1, "created": true})
+	if action == "configure_set":
+		tile_set.callv(StringName("set_terrain_set_mode"), [terrain_set, int(params.get("mode", 0))])
+		return ok_result({"terrainSet": terrain_set, "updated": true})
+	var terrain := int(params.get("terrain", -1))
+	if terrain < 0:
+		return error_result("terrain is required")
+	if action == "configure_terrain":
+		if params.has("mode"): tile_set.callv(StringName("set_terrain_set_terrain_mode"), [terrain_set, terrain, int(params.get("mode"))])
+		if params.has("name"): tile_set.callv(StringName("set_terrain_set_terrain_name"), [terrain_set, terrain, String(params.get("name"))])
+		if params.has("color"): tile_set.callv(StringName("set_terrain_set_terrain_color"), [terrain_set, terrain, parse_color(params.get("color"))])
+		return ok_result({"terrainSet": terrain_set, "terrain": terrain, "updated": true})
+	if action == "set_peering_bit":
+		if not params.has("peeringBit") or not params.has("peeringTerrain"):
+			return error_result("peeringBit and peeringTerrain are required")
+		tile_set.callv(StringName("set_terrain_peering_bit"), [terrain_set, terrain, int(params.get("peeringBit")), int(params.get("peeringTerrain"))])
+		return ok_result({"terrainSet": terrain_set, "terrain": terrain, "updated": true})
+	return error_result("Unsupported TileSet terrain action: %s" % action)
+
+func configure_tileset_proxy(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	var tile_map := resolve_tilemap_node(root, String(params.get("tileMapPath", "")))
+	if tile_map == null:
+		return error_result("TileMapLayer or TileMap not found")
+	var tile_set := ensure_tile_set(tile_map)
+	var action := String(params.get("action", ""))
+	var source_from := int(params.get("sourceFrom", -1))
+	if source_from < 0:
+		return error_result("sourceFrom is required")
+	var source_to := int(params.get("sourceTo", -1))
+	var coordinates_from := vector2i_from_params(params.get("coordinatesFrom", {}), Vector2i.ZERO)
+	var coordinates_to := vector2i_from_params(params.get("coordinatesTo", {}), Vector2i.ZERO)
+	var alternative_from := int(params.get("alternativeFrom", 0))
+	var alternative_to := int(params.get("alternativeTo", 0))
+	var method_name := ""
+	var args := []
+	match action:
+		"set_source":
+			if source_to < 0: return error_result("sourceTo is required")
+			method_name = "set_source_level_tile_proxy"
+			args = [source_from, source_to]
+		"remove_source":
+			method_name = "remove_source_level_tile_proxy"
+			args = [source_from]
+		"set_coords":
+			if source_to < 0: return error_result("sourceTo is required")
+			method_name = "set_coords_level_tile_proxy"
+			args = [source_from, coordinates_from, source_to, coordinates_to]
+		"remove_coords":
+			method_name = "remove_coords_level_tile_proxy"
+			args = [source_from, coordinates_from]
+		"set_tile":
+			if source_to < 0: return error_result("sourceTo is required")
+			method_name = "set_tile_proxy"
+			args = [source_from, coordinates_from, alternative_from, source_to, coordinates_to, alternative_to]
+		"remove_tile":
+			method_name = "remove_tile_proxy"
+			args = [source_from, coordinates_from, alternative_from]
+		_:
+			return error_result("Unsupported TileSet proxy action: %s" % action)
+	if not tile_set.has_method(method_name):
+		return error_result("This Godot build does not expose TileSet proxy mapping")
+	tile_set.callv(StringName(method_name), args)
+	return ok_result({"tileMapPath": String(tile_map.get_path()), "action": action, "updated": true})
 
 func paint_tilemap_terrain(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
@@ -1976,6 +2481,8 @@ func serialize_value(value):
 		return {"type": "Vector2", "value": [value.x, value.y]}
 	if value is Vector3:
 		return {"type": "Vector3", "value": [value.x, value.y, value.z]}
+	if value is Transform3D:
+		return {"type": "Transform3D", "origin": serialize_value(value.origin), "rotationRadians": serialize_value(value.basis.get_euler()), "scale": serialize_value(value.basis.get_scale())}
 	if value is Color:
 		return {"type": "Color", "value": value.to_html(true)}
 	if value is NodePath:

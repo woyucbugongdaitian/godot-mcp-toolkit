@@ -1,6 +1,6 @@
 {
   "name": "godot-mcp-toolkit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A practical MCP toolkit for Godot 4 project automation, live editor control, and runtime observability.",
   "type": "module",
   "bin": {

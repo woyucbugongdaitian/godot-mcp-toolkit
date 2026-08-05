@@ -572,8 +572,16 @@ capture_editor_screenshot()
 这组能力属于 `deep_authoring`。使用前请确保 MCP 配置至少包含：
 
 ```text
-GODOT_MCP_TOOL_GROUPS=editor,advanced_editor,deep_authoring
+GODOT_MCP_TOOL_GROUPS=editor,advanced_editor,deep_authoring,professional_workflows,runtime_diagnostics
 ```
+
+#### 专业工作流、运行时诊断与交付
+
+- 用 `edit_editor_script` 操作当前 Script Editor 缓冲区：`set_caret`、`set_selection`、`insert_text`、`replace_selection`、`set_text` 和 `request_completion`。先调用 `get_script_editor_state` 确认当前脚本，再修改缓冲区。
+- 用 `bake_navigation_region` 为 `NavigationRegion3D` 创建缺失的 `NavigationMesh` 并启动烘焙；用 `get_runtime_body_contacts` 检查开启接触监控的刚体；用 `get_runtime_performance_snapshot` 获取场景节点数、监视数量和即时帧指标。
+- 用 `edit_editor_audio_bus_effects` 或 `edit_runtime_audio_bus_effects` 的 `add`、`configure`、`remove` 操作维护效果链；给 Bus 添加 `AudioEffectSpectrumAnalyzer` 后，调用 `get_runtime_audio_analysis` 读取峰值和频段幅度。
+- 用 `inspect_editor_imports` 检查资源类型和导入有效性，再用 `reimport_editor_resources` 重导入。导入设置本身仍由 Godot 的 Import Dock 管理，避免直接手改内部导入缓存。
+- 用 `list_export_presets` 查看 `export_presets.cfg` 中的名称；调用 `export_project` 时提供预设名和工程内输出路径，例如 `build/windows/game.exe`。工具拒绝工程外输出路径，避免误写到无关目录。
 
 #### AnimationTree 状态机与曲线
 

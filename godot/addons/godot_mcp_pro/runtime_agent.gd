@@ -6,7 +6,7 @@ const BINDING_LEASE_MILLISECONDS := 90000
 
 var tcp_server := TCPServer.new()
 var peers: Array[WebSocketPeer] = []
-var logs: Array[String] = []
+var logs: Array[Dictionary] = []
 var runtime_port := DEFAULT_RUNTIME_PORT + 1
 var bound_session_id := ""
 var binding_last_seen_milliseconds := 0
@@ -137,23 +137,30 @@ func execute_operation(operation: String, params: Dictionary) -> Dictionary:
 			return configure_observability(params)
 		"poll_observability":
 			return poll_observability(params)
+		"get_performance_snapshot":
+			return ok_result(get_performance_snapshot())
 		"capture_viewport":
 			return capture_viewport(params)
 		"query_physics":
 			return query_physics(params)
 		"query_physics_shape":
 			return query_physics_shape(params)
+		"get_body_contacts":
+			return get_body_contacts(params)
 		"query_navigation_path":
 			return query_navigation_path(params)
 		"get_audio_state":
 			return ok_result(get_audio_state())
+		"get_audio_analysis":
+			return get_audio_analysis(params)
+		"edit_audio_bus_effects":
+			return edit_audio_bus_effects(params)
 		"set_audio_bus":
 			return set_audio_bus(params)
 		"play_audio":
 			return play_audio(params)
 		"get_logs":
-			var tail_lines := clampi(int(params.get("tailLines", 200)), 1, 1000)
-			return ok_result({"logs": logs.slice(-tail_lines), "latestEvent": observation_sequence})
+			return get_logs(params)
 		_:
 			return error_result("Unknown runtime operation: %s" % operation)
 
@@ -405,6 +412,38 @@ func get_runtime_metrics() -> Dictionary:
 	var average := total / float(frame_times_milliseconds.size()) if not frame_times_milliseconds.is_empty() else 0.0
 	return {"sampleCount": frame_times_milliseconds.size(), "averageFrameMs": average, "minFrameMs": minimum, "maxFrameMs": maximum, "fps": Engine.get_frames_per_second(), "processFrames": Engine.get_process_frames(), "physicsFrames": Engine.get_physics_frames(), "paused": get_tree().paused}
 
+func get_performance_snapshot() -> Dictionary:
+	var root := get_tree().current_scene
+	return {"metrics": get_runtime_metrics(), "rootPath": String(root.get_path()) if root else "", "nodeCount": count_runtime_nodes(root), "processId": OS.get_process_id(), "runtimePort": runtime_port, "observedPropertyCount": observed_properties.size(), "logCount": logs.size()}
+
+func count_runtime_nodes(node: Node) -> int:
+	if node == null:
+		return 0
+	var count := 1
+	for child in node.get_children():
+		count += count_runtime_nodes(child)
+	return count
+
+func get_logs(params: Dictionary) -> Dictionary:
+	var since := maxi(int(params.get("since", 0)), 0)
+	var tail_lines := clampi(int(params.get("tailLines", 200)), 1, 1000)
+	var severity := String(params.get("severity", "")).to_lower()
+	var source := String(params.get("source", "")).to_lower()
+	var contains := String(params.get("contains", "")).to_lower()
+	var entries := []
+	for entry in logs:
+		if int(entry.get("sequence", 0)) <= since:
+			continue
+		if not severity.is_empty() and String(entry.get("severity", "")).to_lower() != severity:
+			continue
+		if not source.is_empty() and String(entry.get("source", "")).to_lower() != source:
+			continue
+		if not contains.is_empty() and not String(entry.get("message", "")).to_lower().contains(contains):
+			continue
+		entries.append(entry)
+	if entries.size() > tail_lines:
+		entries = entries.slice(-tail_lines)
+	return ok_result({"logs": entries, "latestEvent": observation_sequence})
 func poll_observed_properties() -> void:
 	for watch in observed_properties:
 		var node_path := String(watch.get("nodePath", ""))
@@ -537,6 +576,22 @@ func query_physics_shape(params: Dictionary) -> Dictionary:
 	var shape_results_2d := space_state_2d.intersect_shape(shape_query_2d, max_results)
 	return ok_result(overlap_query_result("2d", "shape", shape_results_2d))
 
+func get_body_contacts(params: Dictionary) -> Dictionary:
+	var body := resolve_runtime_node(String(params.get("nodePath", "")))
+	if body == null or not (body is RigidBody2D or body is RigidBody3D):
+		return error_result("RigidBody2D or RigidBody3D not found")
+	if not body.has_method("get_contact_count"):
+		return error_result("This runtime body does not expose contact monitor data")
+	var contact_count := int(body.callv(StringName("get_contact_count"), []))
+	var contacts := []
+	for contact_index in range(contact_count):
+		contacts.append({"index": contact_index, "colliderId": read_body_contact(body, "get_contact_collider_id", contact_index), "collider": read_body_contact(body, "get_contact_collider_object", contact_index), "colliderPosition": read_body_contact(body, "get_contact_collider_position", contact_index), "colliderShape": read_body_contact(body, "get_contact_collider_shape", contact_index), "impulse": read_body_contact(body, "get_contact_impulse", contact_index), "localPosition": read_body_contact(body, "get_contact_local_position", contact_index), "localNormal": read_body_contact(body, "get_contact_local_normal", contact_index), "localShape": read_body_contact(body, "get_contact_local_shape", contact_index)})
+	return ok_result({"nodePath": String(body.get_path()), "contactCount": contact_count, "maxContactsReported": body.get("max_contacts_reported") if has_property(body, "max_contacts_reported") else null, "contacts": contacts})
+
+func read_body_contact(body: Object, method_name: String, contact_index: int):
+	if not body.has_method(method_name):
+		return null
+	return serialize_value(body.callv(StringName(method_name), [contact_index]))
 func query_navigation_path(params: Dictionary) -> Dictionary:
 	var dimension := String(params.get("dimension", "2d"))
 	var from_value = params.get("from", {})
@@ -635,6 +690,80 @@ func set_audio_bus(params: Dictionary) -> Dictionary:
 		AudioServer.set_bus_solo(index, bool(params.get("solo")))
 	return ok_result({"index": index, "name": AudioServer.get_bus_name(index), "volumeDb": AudioServer.get_bus_volume_db(index), "mute": AudioServer.is_bus_mute(index), "solo": AudioServer.is_bus_solo(index)})
 
+func describe_audio_bus_effects(bus_index: int) -> Array:
+	var effects := []
+	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
+		var effect = AudioServer.get_bus_effect(bus_index, effect_index)
+		effects.append({"index": effect_index, "type": effect.get_class() if effect else "", "resourcePath": effect.resource_path if effect is Resource else ""})
+	return effects
+
+func instantiate_audio_effect(effect_type: String):
+	if not effect_type.begins_with("AudioEffect") or not ClassDB.class_exists(effect_type):
+		return null
+	var effect = ClassDB.instantiate(effect_type)
+	if effect == null or not effect is AudioEffect:
+		return null
+	return effect
+
+func apply_audio_effect_properties(effect: Object, values) -> Dictionary:
+	var changed := []
+	var invalid := []
+	if not values is Dictionary:
+		return {"changed": changed, "invalid": invalid}
+	for key in values.keys():
+		var property_name := String(key)
+		if not has_property(effect, property_name):
+			invalid.append(property_name)
+			continue
+		effect.set(property_name, decode_value(values[key]))
+		changed.append(property_name)
+	return {"changed": changed, "invalid": invalid}
+
+func get_audio_analysis(params: Dictionary) -> Dictionary:
+	var bus_index := AudioServer.get_bus_index(String(params.get("bus", "Master")))
+	if bus_index < 0:
+		return error_result("Audio bus not found")
+	var analysis := {"index": bus_index, "name": AudioServer.get_bus_name(bus_index), "effects": describe_audio_bus_effects(bus_index)}
+	if AudioServer.has_method("get_bus_peak_volume_left_db"):
+		analysis["peakLeftDb"] = AudioServer.callv(StringName("get_bus_peak_volume_left_db"), [bus_index, 0])
+		analysis["peakRightDb"] = AudioServer.callv(StringName("get_bus_peak_volume_right_db"), [bus_index, 0])
+	var from_hz := float(params.get("fromHz", 20.0))
+	var to_hz := maxf(float(params.get("toHz", 20000.0)), from_hz)
+	var spectrum_mode := int(params.get("spectrumMode", 0))
+	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
+		var effect_instance = AudioServer.callv(StringName("get_bus_effect_instance"), [bus_index, effect_index])
+		if effect_instance != null and effect_instance.has_method("get_magnitude_for_frequency_range"):
+			analysis["spectrum"] = {"effectIndex": effect_index, "fromHz": from_hz, "toHz": to_hz, "magnitude": serialize_value(effect_instance.callv(StringName("get_magnitude_for_frequency_range"), [from_hz, to_hz, spectrum_mode]))}
+			break
+	return ok_result(analysis)
+
+func edit_audio_bus_effects(params: Dictionary) -> Dictionary:
+	var bus_index := AudioServer.get_bus_index(String(params.get("bus", "Master")))
+	if bus_index < 0:
+		return error_result("Audio bus not found")
+	var action := String(params.get("action", ""))
+	if action == "inspect":
+		return ok_result({"index": bus_index, "name": AudioServer.get_bus_name(bus_index), "effects": describe_audio_bus_effects(bus_index)})
+	if action == "add":
+		var effect = instantiate_audio_effect(String(params.get("effectType", "")))
+		if effect == null:
+			return error_result("effectType must name a built-in AudioEffect class")
+		var property_result := apply_audio_effect_properties(effect, params.get("properties", {}))
+		var insertion_index := clampi(int(params.get("index", -1)), -1, AudioServer.get_bus_effect_count(bus_index))
+		var resolved_index := AudioServer.get_bus_effect_count(bus_index) if insertion_index < 0 else insertion_index
+		AudioServer.callv(StringName("add_bus_effect"), [bus_index, effect, insertion_index])
+		return ok_result({"bus": AudioServer.get_bus_name(bus_index), "effectIndex": resolved_index, "effectType": effect.get_class(), "added": true, "properties": property_result})
+	var effect_index := int(params.get("effectIndex", -1))
+	if effect_index < 0 or effect_index >= AudioServer.get_bus_effect_count(bus_index):
+		return error_result("effectIndex is outside this AudioServer bus")
+	var current_effect = AudioServer.get_bus_effect(bus_index, effect_index)
+	if action == "remove":
+		AudioServer.callv(StringName("remove_bus_effect"), [bus_index, effect_index])
+		return ok_result({"bus": AudioServer.get_bus_name(bus_index), "effectIndex": effect_index, "removed": true})
+	if action == "configure":
+		var property_result := apply_audio_effect_properties(current_effect, params.get("properties", {}))
+		return ok_result({"bus": AudioServer.get_bus_name(bus_index), "effectIndex": effect_index, "effectType": current_effect.get_class(), "properties": property_result, "updated": true})
+	return error_result("Unsupported AudioServer effect action: %s" % action)
 func play_audio(params: Dictionary) -> Dictionary:
 	var node := resolve_runtime_node(String(params.get("nodePath", "")))
 	if node == null or not (node is AudioStreamPlayer or node is AudioStreamPlayer2D or node is AudioStreamPlayer3D):
@@ -733,8 +862,8 @@ func error_result(message: String, details = {}) -> Dictionary:
 	log_message(message)
 	return {"ok": false, "error": message, "details": details}
 
-func log_message(message: String) -> void:
-	logs.append("[%s] %s" % [Time.get_time_string_from_system(), message])
-	append_observation_event("runtime_log", {"message": message})
+func log_message(message: String, severity := "info", source := "runtime_agent") -> void:
+	append_observation_event("runtime_log", {"message": message, "severity": severity, "source": source})
+	logs.append({"sequence": observation_sequence, "timeMs": Time.get_ticks_msec(), "severity": severity, "source": source, "message": message})
 	if logs.size() > MAX_LOG_ENTRIES:
 		logs.pop_front()

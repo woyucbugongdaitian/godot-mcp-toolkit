@@ -46,9 +46,9 @@ flowchart LR
 
 当前仓库的内置工具数量是：
 
-- **默认 43 个**：无头项目、场景、脚本、资源、截图、测试和诊断能力；
-- **开启 Editor Bridge + `GODOT_MCP_TOOL_GROUPS=all` 后 149 个唯一工具**：增加编辑器、UI、3D、动画、Runtime Agent 和深度创作能力；
-- **按阅读体验整理为 23 类**：下面的分类数量相加为 149；如果通过 `GODOT_MCP_EXTENSIONS_DIR` 加载扩展，实际总数会继续增加。
+- **默认 45 个**：无头项目、场景、脚本、资源、截图、测试和诊断能力；
+- **开启 Editor Bridge + `GODOT_MCP_TOOL_GROUPS=all` 后 164 个唯一工具**：增加编辑器、UI、3D、动画、Runtime Agent 和深度创作能力；
+- **按阅读体验整理为 23 类**：下面的分类数量相加为 164；如果通过 `GODOT_MCP_EXTENSIONS_DIR` 加载扩展，实际总数会继续增加。
 
 <details>
 <summary>展开 23 类功能清单</summary>
@@ -56,7 +56,7 @@ flowchart LR
 | 类别 | 工具数 | 能做什么 |
 | --- | ---: | --- |
 | **服务与诊断** | 3 | Server 健康、能力信息、Godot 版本 |
-| **项目与上下文** | 5 | 项目发现、创建、设置和 AI 项目上下文 |
+| **项目与上下文** | 7 | 项目发现、创建、设置和 AI 项目上下文 |
 | **文件与搜索** | 4 | 文件列表、读写和项目搜索 |
 | **资源与 UID** | 4 | 资源列表、引用关系、UID 读取与刷新 |
 | **场景** | 6 | 创建、复制、保存、场景树和节点检查 |
@@ -64,20 +64,20 @@ flowchart LR
 | **脚本** | 3 | 创建、挂载和语法检查 |
 | **无头截图与校验** | 3 | 场景截图、项目检查、轻量性能采样 |
 | **无头启动与测试** | 6 | 启动、停止、输出、输入模拟和自动化测试 |
-| **编辑器连接与工作区** | 12 | Editor 绑定、插件、工作区、日志和资源重载 |
+| **编辑器连接与工作区** | 13 | Editor 绑定、插件、工作区、日志和资源重载 |
 | **编辑器场景与选择** | 16 | 场景树、选择集、Inspector、Undo/Redo 和视口截图 |
-| **编辑器脚本与调试** | 9 | Script Editor 状态、跳转、断点、调试和执行 |
-| **UI、Theme 与资源** | 8 | UI 屏幕、布局、颜色、字体、StyleBox 和资源赋值 |
-| **2D 与 3D 场景** | 8 | 网格、ArrayMesh、相机、灯光、Transform 和 3D 检查 |
+| **编辑器脚本与调试** | 10 | Script Editor 状态、跳转、断点、调试和执行 |
+| **UI、Theme 与资源** | 9 | UI 屏幕、布局、颜色、字体、StyleBox 和资源赋值 |
+| **2D 与 3D 场景** | 10 | 网格、ArrayMesh、相机、灯光、Transform 和 3D 检查 |
 | **材质与渲染** | 4 | StandardMaterial、材质分配、调色和风格化渲染 |
 | **粒子、着色器与效果** | 7 | GPU 粒子、Shader、屏幕闪烁、后处理和视觉效果 |
 | **动画与时间轴** | 10 | AnimationPlayer、轨道、关键帧、AnimationTree、曲线和时间轴 |
-| **导航** | 4 | 导航节点、Agent、检查和运行时路径查询 |
-| **物理** | 5 | 碰撞形状、物理配置、射线、点和形状查询 |
-| **音频** | 7 | Audio Bus、播放器、播放、音量、静音和运行时状态 |
-| **TileMap** | 4 | TileMap 检查、单元格、图集和地形绘制 |
+| **导航** | 5 | 导航节点、Agent、检查和运行时路径查询 |
+| **物理** | 6 | 碰撞形状、物理配置、射线、点和形状查询 |
+| **音频** | 10 | Audio Bus、播放器、播放、音量、静音和运行时状态 |
+| **TileMap** | 6 | TileMap 检查、单元格、图集和地形绘制 |
 | **运行时检查与控制** | 10 | 远程树、属性、方法、暂停、单步和绑定生命周期 |
-| **运行时输入、观测与截图** | 6 | 键鼠/指针输入、Watch、日志、帧指标和运行时截图 |
+| **运行时输入、观测与截图** | 7 | 键鼠/指针输入、Watch、日志、帧指标和运行时截图 |
 
 </details>
 
@@ -211,11 +211,11 @@ xcopy /E /I /Y "E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro" "E:\Games
 | --- | --- |
 | 工程修复或脚本生成 | `project,scenes,nodes,scripts,resources,performance,ai,diagnostics` |
 | 2D 地图和 UI | `editor,ui,effects,project,scenes,nodes,scripts,visuals,tilemap` |
-| 3D 原型和深度创作 | `editor,advanced_editor,deep_authoring,effects,project,scenes,nodes,animation,resources` |
-| 运行时测试和调试 | `runtime,performance,diagnostics` |
+| 3D 原型和深度创作 | `editor,advanced_editor,deep_authoring,professional_workflows,effects,project,scenes,nodes,animation,resources` |
+| 运行时测试和调试 | `runtime,runtime_diagnostics,performance,diagnostics` |
 | 全部能力 | `all` |
 
-`editor`、`ui`、`effects`、`advanced_editor`、`deep_authoring` 需要 Editor Bridge。Runtime 的远程控制也需要插件；`run_project`、输出读取、无头输入模拟和自动化测试无需插件即可使用。
+`editor`、`ui`、`effects`、`advanced_editor`、`deep_authoring`、`professional_workflows` 需要 Editor Bridge；`runtime_diagnostics` 需要 Runtime Agent。Runtime 的远程控制也需要插件；`run_project`、输出读取、无头输入模拟和自动化测试无需插件即可使用。
 
 ## 常见工作流
 
@@ -282,7 +282,7 @@ xcopy /E /I /Y "E:\Tools\godot-mcp-toolkit\godot\addons\godot_mcp_pro" "E:\Games
 
 ## 当前边界
 
-Godot MCP Toolkit 优先提供稳定、可验证的语义操作，而不是像素级复刻每一个 Godot Editor 面板。当前已支持 ArrayMesh 表面编辑、基础状态机图、Bezier 曲线、Theme 子项和 TileSet 图集/Terrain 操作；骨骼蒙皮、导入网格编辑、复杂 Blend 图、Navigation Mesh 烘焙、详细物理调试可视化、Audio Bus 效果链、导出预设，以及高级 TileSet/Theme 继承仍属于路线图内容。详见 [docs/roadmap.md](docs/roadmap.md)。
+Godot MCP Toolkit 优先提供稳定、可验证的语义操作，而不是像素级复刻每一个 Godot Editor 面板。现在已支持 ArrayMesh、Skeleton/Skin、BlendSpace 基础、NavigationMesh 烘焙、运行时接触与结构化日志、Audio Bus 效果链/频谱峰值、Theme 字体/图标/继承、TileSet Terrain/代理映射与安全导出预设。导入网格顶点编辑、完整 Gizmo 手势、VisualShader 图、代码重构/完整调试栈、导入设置编写、Project Manager/Export Dock UI 自动化和所有 Editor 面板仍不属于语义 API 边界。详见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 开发
 

@@ -62,6 +62,8 @@ for (const name of [
   "list_resources",
   "profile_scene",
   "get_game_context",
+  "list_export_presets",
+  "export_project",
 ]) assert.equal(names.has(name), true, name);
 
 assert.equal(names.has("get_editor_info"), false, "Live editor tools stay opt-in");
@@ -85,6 +87,8 @@ await fs.writeFile(activeProjectFile, JSON.stringify({ projectPath }), "utf8");
 const defaultInfo = await callTool("get_project_info", {});
 assert.equal(defaultInfo.name, "Contract Test");
 assert.equal(listing.result.tools.find((entry) => entry.name === "get_project_info").inputSchema.required?.includes("projectPath") ?? false, false);
+const exportPresets = await callTool("list_export_presets", { projectPath });
+assert.equal(exportPresets.exists, false);
 await callTool("write_file", { projectPath, path: "scripts/test.gd", content: "extends Node\n" });
 const file = await callTool("read_file", { projectPath, path: "scripts/test.gd" });
 assert.equal(file.content, "extends Node\n");

@@ -149,7 +149,7 @@ try {
 
   const listing = await firstClient.request("tools/list", {});
   const toolNames = new Set(listing.result.tools.map((tool) => tool.name));
-  for (const name of ["bind_editor", "get_editor_binding", "release_editor_binding", "create_2d_camera", "create_2d_light", "create_ui_component", "configure_stylized_rendering", "edit_animation_state_machine", "edit_animation_curve", "configure_animation_timeline", "edit_theme_resource", "assign_editor_resource", "edit_tileset_atlas", "paint_tilemap_terrain", "edit_array_mesh"]) assert.equal(toolNames.has(name), true, name);
+  for (const name of ["bind_editor", "get_editor_binding", "release_editor_binding", "create_2d_camera", "create_2d_light", "create_ui_component", "configure_stylized_rendering", "edit_animation_state_machine", "edit_animation_curve", "configure_animation_timeline", "edit_theme_resource", "assign_editor_resource", "edit_tileset_atlas", "paint_tilemap_terrain", "edit_array_mesh", "edit_skeleton_3d", "edit_skin_resource", "edit_editor_script", "edit_editor_resource", "configure_tileset_terrain", "configure_tileset_proxy", "inspect_editor_imports", "bake_navigation_region", "edit_editor_audio_bus_effects"]) assert.equal(toolNames.has(name), true, name);
 
   const initialBinding = await firstClient.call("get_editor_binding");
   assert.equal(initialBinding.value.bound, false);
